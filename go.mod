@@ -1,4 +1,4 @@
-module github.com/signintech/gopdf
+module github.com/VantageDataChat/GoPDF2
 
 go 1.13
 

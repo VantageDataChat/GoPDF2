@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/signintech/gopdf"
+	"github.com/VantageDataChat/GoPDF2"
 )
 
 func TestPageWithImage(t *testing.T) {
