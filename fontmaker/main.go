@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/VantageDataChat/gopdf2/fontmaker/core"
+	"github.com/VantageDataChat/GoPDF2/fontmaker/core"
 	//"runtime/debug"
 )
 
@@ -45,7 +45,7 @@ func echoUsage() {
 	buff.WriteString("\nUsage:\n")
 	buff.WriteString("\tfontmaker encoding map_folder font_file output_folder\n")
 	buff.WriteString("\nExample:\n")
-	buff.WriteString("\tfontmaker cp874 /gopath/github.com/VantageDataChat/gopdf2/fontmaker/map  ../ttf/Loma.ttf ./tmp\n")
+	buff.WriteString("\tfontmaker cp874 /gopath/github.com/VantageDataChat/GoPDF2/fontmaker/map  ../ttf/Loma.ttf ./tmp\n")
 	buff.WriteString("\n")
 	fmt.Print(buff.String())
 }

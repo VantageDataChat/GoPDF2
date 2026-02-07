@@ -1,6 +1,6 @@
 ﻿# GoPDF2
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/VantageDataChat/gopdf2.svg)](https://pkg.go.dev/github.com/VantageDataChat/gopdf2)
+[![Go Reference](https://pkg.go.dev/badge/github.com/VantageDataChat/GoPDF2.svg)](https://pkg.go.dev/github.com/VantageDataChat/GoPDF2)
 
 **[English](README.md) | [中文](README_zh.md)**
 
@@ -25,7 +25,7 @@ Requires Go 1.13+.
 ## Installation
 
 ```bash
-go get -u github.com/VantageDataChat/gopdf2
+go get -u github.com/VantageDataChat/GoPDF2
 ```
 
 ## Quick Start
@@ -37,7 +37,7 @@ package main
 
 import (
     "log"
-    "github.com/VantageDataChat/gopdf2"
+    "github.com/VantageDataChat/GoPDF2"
 )
 
 func main() {
@@ -72,7 +72,7 @@ package main
 
 import (
     "log"
-    "github.com/VantageDataChat/gopdf2"
+    "github.com/VantageDataChat/GoPDF2"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-module github.com/VantageDataChat/gopdf2
+module github.com/VantageDataChat/GoPDF2
 
 go 1.13
 

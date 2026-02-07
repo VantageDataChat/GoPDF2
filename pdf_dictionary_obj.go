@@ -7,7 +7,7 @@ import (
 	"io"
 	"sort"
 
-	"github.com/VantageDataChat/gopdf2/fontmaker/core"
+	"github.com/VantageDataChat/GoPDF2/fontmaker/core"
 )
 
 // EntrySelectors entry selectors

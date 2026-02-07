@@ -1,6 +1,6 @@
 ﻿# GoPDF2
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/VantageDataChat/gopdf2.svg)](https://pkg.go.dev/github.com/VantageDataChat/gopdf2)
+[![Go Reference](https://pkg.go.dev/badge/github.com/VantageDataChat/GoPDF2.svg)](https://pkg.go.dev/github.com/VantageDataChat/GoPDF2)
 
 **[English](README.md) | [中文](README_zh.md)**
 
@@ -25,7 +25,7 @@ GoPDF2 是一个用 Go 编写的 PDF 生成库。基于 [gopdf](https://github.c
 ## 安装
 
 ```bash
-go get -u github.com/VantageDataChat/gopdf2
+go get -u github.com/VantageDataChat/GoPDF2
 ```
 
 ## 快速开始
@@ -37,7 +37,7 @@ package main
 
 import (
     "log"
-    "github.com/VantageDataChat/gopdf2"
+    "github.com/VantageDataChat/GoPDF2"
 )
 
 func main() {
@@ -72,7 +72,7 @@ package main
 
 import (
     "log"
-    "github.com/VantageDataChat/gopdf2"
+    "github.com/VantageDataChat/GoPDF2"
 )
 
 func main() {

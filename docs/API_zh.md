@@ -2,7 +2,7 @@
 
 **[English](API.md) | [中文](API_zh.md)**
 
-包 `gopdf` — [github.com/VantageDataChat/gopdf2](https://github.com/VantageDataChat/gopdf2)
+包 `gopdf` — [github.com/VantageDataChat/GoPDF2](https://github.com/VantageDataChat/GoPDF2)
 
 ---
 

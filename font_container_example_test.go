@@ -1,7 +1,7 @@
 package gopdf_test
 
 import (
-	"github.com/VantageDataChat/gopdf2"
+	"github.com/VantageDataChat/GoPDF2"
 	"io"
 	"os"
 )

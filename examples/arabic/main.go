@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/VantageDataChat/gopdf2"
+	"github.com/VantageDataChat/GoPDF2"
 )
 
 func main() {
