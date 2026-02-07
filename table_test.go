@@ -3,7 +3,7 @@ package gopdf_test
 import (
 	"testing"
 
-	"github.com/VantageDataChat/GoPDF2"
+	"github.com/VantageDataChat/gopdf2"
 )
 
 func TestTable(t *testing.T) {

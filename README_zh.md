@@ -1,6 +1,6 @@
-# GoPDF2
+﻿# GoPDF2
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/VantageDataChat/GoPDF2.svg)](https://pkg.go.dev/github.com/VantageDataChat/GoPDF2)
+[![Go Reference](https://pkg.go.dev/badge/github.com/VantageDataChat/gopdf2.svg)](https://pkg.go.dev/github.com/VantageDataChat/gopdf2)
 
 **[English](README.md) | [中文](README_zh.md)**
 
@@ -25,7 +25,7 @@ GoPDF2 是一个用 Go 编写的 PDF 生成库。基于 [gopdf](https://github.c
 ## 安装
 
 ```bash
-go get -u github.com/VantageDataChat/GoPDF2
+go get -u github.com/VantageDataChat/gopdf2
 ```
 
 ## 快速开始
@@ -37,7 +37,7 @@ package main
 
 import (
     "log"
-    "github.com/VantageDataChat/GoPDF2"
+    "github.com/VantageDataChat/gopdf2"
 )
 
 func main() {
@@ -72,7 +72,7 @@ package main
 
 import (
     "log"
-    "github.com/VantageDataChat/GoPDF2"
+    "github.com/VantageDataChat/gopdf2"
 )
 
 func main() {
@@ -150,7 +150,7 @@ func main() {
 
 ### 字体子集化与文件大小控制
 
-GoPDF2 默认使用**字体子集化**。调用 `AddTTFFont` 时会解析完整的 TTF 文件，但输出 PDF 时仅嵌入文档中实际使用的字形。这对中日韩字体尤为重要 — 一个 CJK 字体文件可能有 10–20 MB，但生成的 PDF 只会包含所用字符对应的几 KB 数据。
+GoPDF2 默认使用**字体子集化**。调用 `AddTTFFont` 时会解析完整的 TTF 文件，但输出 PDF 时仅嵌入文档中实际使用的字形。这对中日韩字体尤为重要 — 一个 CJK 字体文件可能有 10-20 MB，但生成的 PDF 只会包含所用字符对应的几 KB 数据。
 
 无需额外配置，子集化是自动完成的。
 

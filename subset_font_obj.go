@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/VantageDataChat/GoPDF2/fontmaker/core"
+	"github.com/VantageDataChat/gopdf2/fontmaker/core"
 )
 
 // ErrCharNotFound char not found

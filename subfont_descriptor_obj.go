@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/VantageDataChat/GoPDF2/fontmaker/core"
+	"github.com/VantageDataChat/gopdf2/fontmaker/core"
 )
 
 // SubfontDescriptorObj pdf subfont descriptorObj object

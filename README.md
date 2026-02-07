@@ -1,6 +1,6 @@
-# GoPDF2
+﻿# GoPDF2
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/VantageDataChat/GoPDF2.svg)](https://pkg.go.dev/github.com/VantageDataChat/GoPDF2)
+[![Go Reference](https://pkg.go.dev/badge/github.com/VantageDataChat/gopdf2.svg)](https://pkg.go.dev/github.com/VantageDataChat/gopdf2)
 
 **[English](README.md) | [中文](README_zh.md)**
 
@@ -25,7 +25,7 @@ Requires Go 1.13+.
 ## Installation
 
 ```bash
-go get -u github.com/VantageDataChat/GoPDF2
+go get -u github.com/VantageDataChat/gopdf2
 ```
 
 ## Quick Start
@@ -37,7 +37,7 @@ package main
 
 import (
     "log"
-    "github.com/VantageDataChat/GoPDF2"
+    "github.com/VantageDataChat/gopdf2"
 )
 
 func main() {
@@ -72,7 +72,7 @@ package main
 
 import (
     "log"
-    "github.com/VantageDataChat/GoPDF2"
+    "github.com/VantageDataChat/gopdf2"
 )
 
 func main() {
@@ -89,17 +89,17 @@ func main() {
     }
 
     html := `
-    <h2>GoPDF2 HTML 渲染示例</h2>
-    <p>支持<b>加粗</b>、<i>斜体</i>、<u>下划线</u>和
-       <font color="#e74c3c">彩色文字</font>。</p>
+    <h2>GoPDF2 HTML Rendering</h2>
+    <p>Supports <b>bold</b>, <i>italic</i>, <u>underline</u> and
+       <font color="#e74c3c">colored text</font>.</p>
     <ul>
-        <li>自动换行与分段</li>
-        <li>有序/无序列表</li>
-        <li>图片插入</li>
+        <li>Auto line wrapping</li>
+        <li>Ordered/unordered lists</li>
+        <li>Image insertion</li>
     </ul>
     <hr/>
     <p style="font-size:10pt; color:gray">
-        字体子集嵌入 — 仅包含文档中实际使用的字符，有效控制文件大小。
+        Font subsetting — only characters actually used are embedded.
     </p>`
 
     endY, err := pdf.InsertHTMLBox(40, 40, 515, 750, html, gopdf.HTMLBoxOption{
@@ -150,7 +150,7 @@ func main() {
 
 ### Font Subsetting & File Size
 
-GoPDF2 uses **font subsetting** by default. When you call `AddTTFFont`, the full TTF is parsed, but only the glyphs for characters actually used in the document are embedded in the output PDF. This is especially important for CJK fonts which can be 10–20 MB — the resulting PDF will only contain the few KB needed for the characters you used.
+GoPDF2 uses **font subsetting** by default. When you call `AddTTFFont`, the full TTF is parsed, but only the glyphs for characters actually used in the document are embedded in the output PDF. This is especially important for CJK fonts which can be 10-20 MB — the resulting PDF will only contain the few KB needed for the characters you used.
 
 No extra configuration is needed; subsetting is automatic.
 
