@@ -282,6 +282,29 @@ func (gp *GoPdf) ImportPagesFromSource(source interface{}, box string) error
 
 ---
 
+## Open and Modify Existing PDF
+
+```go
+func (gp *GoPdf) OpenPDF(pdfPath string, opt *OpenPDFOption) error
+func (gp *GoPdf) OpenPDFFromBytes(pdfData []byte, opt *OpenPDFOption) error
+func (gp *GoPdf) OpenPDFFromStream(rs *io.ReadSeeker, opt *OpenPDFOption) error
+```
+
+Open an existing PDF and import all pages so that new content can be drawn on top of them. The original page content is preserved as a background; any drawing method (Text, Cell, Image, InsertHTMLBox, Line, etc.) can then overlay new content.
+
+After calling `OpenPDF`, use `SetPage(n)` (1-based) to switch pages, draw content, then call `WritePdf` to save.
+
+### OpenPDFOption
+
+```go
+type OpenPDFOption struct {
+    Box        string               // PDF box: "/MediaBox" (default), "/CropBox", etc.
+    Protection *PDFProtectionConfig // Optional password protection for output.
+}
+```
+
+---
+
 ## Placeholder Text
 
 ```go

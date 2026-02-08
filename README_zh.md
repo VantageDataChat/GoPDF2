@@ -4,13 +4,14 @@
 
 **[English](README.md) | [中文](README_zh.md)**
 
-GoPDF2 是一个用 Go 编写的 PDF 生成库。基于 [gopdf](https://github.com/signintech/gopdf) 开发，新增了 HTML 渲染等功能。
+GoPDF2 是一个用 Go 编写的 PDF 生成库。基于 [gopdf](https://github.com/signintech/gopdf) 开发，新增了 HTML 渲染、打开并修改已有 PDF 等功能。
 
 需要 Go 1.13+。
 
 ## 功能特性
 
 - Unicode 子集字体嵌入（中文、日文、韩文等），自动子集化以最小化文件体积
+- **打开并修改已有 PDF** — 通过 `OpenPDF` 导入所有页面，在其上叠加新内容（文字、图片、HTML、绘图），然后保存
 - **HTML 转 PDF 渲染** — 通过 `InsertHTMLBox` 支持 `<b>`、`<i>`、`<u>`、`<p>`、`<h1>`–`<h6>`、`<font>`、`<span style>`、`<img>`、`<ul>`/`<ol>`、`<hr>`、`<center>`、`<a>`、`<blockquote>` 等标签
 - 绘制线条、椭圆、矩形（支持圆角）、曲线、多边形
 - 插入图片（JPEG、PNG），支持遮罩、裁剪、旋转、透明度
@@ -247,6 +248,35 @@ pdf.Start(gopdf.Config{
 tpl := pdf.ImportPage("existing.pdf", 1, "/MediaBox")
 pdf.UseImportedTemplate(tpl, 50, 100, 400, 0)
 ```
+
+### 打开并修改已有 PDF
+
+`OpenPDF` 加载已有 PDF，可以在每一页上叠加新内容：
+
+```go
+pdf := gopdf.GoPdf{}
+err := pdf.OpenPDF("input.pdf", nil)
+if err != nil {
+    log.Fatal(err)
+}
+
+pdf.AddTTFFont("myfont", "font.ttf")
+pdf.SetFont("myfont", "", 14)
+
+// 在第 1 页绘制
+pdf.SetPage(1)
+pdf.SetXY(100, 100)
+pdf.Cell(nil, "水印文字")
+
+// 在第 2 页绘制
+pdf.SetPage(2)
+pdf.SetXY(200, 200)
+pdf.Image("stamp.png", 200, 200, nil)
+
+pdf.WritePdf("output.pdf")
+```
+
+也可使用 `OpenPDFFromBytes(data, opt)` 和 `OpenPDFFromStream(rs, opt)`。
 
 ### 表格
 

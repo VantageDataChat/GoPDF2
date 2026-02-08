@@ -4,13 +4,14 @@
 
 **[English](README.md) | [中文](README_zh.md)**
 
-GoPDF2 is a Go library for generating PDF documents. Forked from [gopdf](https://github.com/signintech/gopdf), it adds HTML rendering support and other enhancements.
+GoPDF2 is a Go library for generating PDF documents. Forked from [gopdf](https://github.com/signintech/gopdf), it adds HTML rendering support, the ability to open and modify existing PDFs, and other enhancements.
 
 Requires Go 1.13+.
 
 ## Features
 
 - Unicode subfont embedding (Chinese, Japanese, Korean, etc.) with automatic subsetting to minimize file size
+- **Open and modify existing PDFs** via `OpenPDF` — import all pages, overlay new content (text, images, HTML, drawings), and save
 - **HTML-to-PDF rendering** via `InsertHTMLBox` — supports `<b>`, `<i>`, `<u>`, `<p>`, `<h1>`–`<h6>`, `<font>`, `<span style>`, `<img>`, `<ul>`/`<ol>`, `<hr>`, `<center>`, `<a>`, `<blockquote>`, and more
 - Draw lines, ovals, rectangles (with rounded corners), curves, polygons
 - Draw images (JPEG, PNG) with mask, crop, rotation, and transparency
@@ -247,6 +248,35 @@ pdf.Start(gopdf.Config{
 tpl := pdf.ImportPage("existing.pdf", 1, "/MediaBox")
 pdf.UseImportedTemplate(tpl, 50, 100, 400, 0)
 ```
+
+### Open and Modify Existing PDF
+
+`OpenPDF` loads an existing PDF so you can draw new content on top of every page:
+
+```go
+pdf := gopdf.GoPdf{}
+err := pdf.OpenPDF("input.pdf", nil)
+if err != nil {
+    log.Fatal(err)
+}
+
+pdf.AddTTFFont("myfont", "font.ttf")
+pdf.SetFont("myfont", "", 14)
+
+// Draw on page 1
+pdf.SetPage(1)
+pdf.SetXY(100, 100)
+pdf.Cell(nil, "Watermark text")
+
+// Draw on page 2
+pdf.SetPage(2)
+pdf.SetXY(200, 200)
+pdf.Image("stamp.png", 200, 200, nil)
+
+pdf.WritePdf("output.pdf")
+```
+
+Also available as `OpenPDFFromBytes(data, opt)` and `OpenPDFFromStream(rs, opt)`.
 
 ### Table
 

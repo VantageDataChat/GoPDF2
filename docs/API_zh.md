@@ -282,6 +282,29 @@ func (gp *GoPdf) ImportPagesFromSource(source interface{}, box string) error
 
 ---
 
+## 打开并修改已有 PDF
+
+```go
+func (gp *GoPdf) OpenPDF(pdfPath string, opt *OpenPDFOption) error
+func (gp *GoPdf) OpenPDFFromBytes(pdfData []byte, opt *OpenPDFOption) error
+func (gp *GoPdf) OpenPDFFromStream(rs *io.ReadSeeker, opt *OpenPDFOption) error
+```
+
+打开已有 PDF 并导入所有页面，使新内容可以叠加在原有页面之上。原始页面内容作为背景保留，之后可使用任何绘图方法（Text、Cell、Image、InsertHTMLBox、Line 等）叠加新内容。
+
+调用 `OpenPDF` 后，使用 `SetPage(n)`（从 1 开始）切换页面，绘制内容，最后调用 `WritePdf` 保存。
+
+### OpenPDFOption
+
+```go
+type OpenPDFOption struct {
+    Box        string               // PDF 页面框："/MediaBox"（默认）、"/CropBox" 等。
+    Protection *PDFProtectionConfig // 可选，输出 PDF 的密码保护设置。
+}
+```
+
+---
+
 ## 占位文本
 
 ```go
