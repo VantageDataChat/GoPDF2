@@ -115,6 +115,18 @@ type GoPdf struct {
 
 	//xmp metadata
 	xmpMetadata *XMPMetadata
+
+	//optional content groups (layers)
+	ocgs []ocgRef
+
+	//form fields (AcroForm)
+	formFields []formFieldRef
+}
+
+// formFieldRef stores a form field and its object index.
+type formFieldRef struct {
+	field   FormField
+	objIdx  int // index in pdfObjs
 }
 
 type DrawableRectOptions struct {
@@ -2278,6 +2290,34 @@ func (gp *GoPdf) prepare() {
 		metaIdx := gp.addObj(xmpMetadataObj{meta: gp.xmpMetadata})
 		catalogObj := gp.pdfObjs[gp.indexOfCatalogObj].(*CatalogObj)
 		catalogObj.SetIndexObjMetadata(metaIdx)
+	}
+
+	// Add OCProperties for Optional Content Groups.
+	if len(gp.ocgs) > 0 {
+		ocpIdx := gp.addObj(ocPropertiesObj{ocgs: gp.ocgs})
+		catalogObj := gp.pdfObjs[gp.indexOfCatalogObj].(*CatalogObj)
+		catalogObj.SetIndexObjOCProperties(ocpIdx)
+	}
+
+	// Add AcroForm for interactive form fields.
+	if len(gp.formFields) > 0 {
+		af := acroFormObj{needAppearances: true}
+		// Collect field object IDs and font references
+		fontSeen := make(map[string]bool)
+		for _, ref := range gp.formFields {
+			af.fieldObjIDs = append(af.fieldObjIDs, ref.objIdx+1)
+			// Resolve font for DA/DR
+			if fObj, ok := gp.pdfObjs[ref.objIdx].(formFieldObj); ok && fObj.fontRef != "" && !fontSeen[fObj.fontRef] {
+				fontSeen[fObj.fontRef] = true
+				af.fontRefs = append(af.fontRefs, acroFormFont{
+					name:  fObj.fontRef[1:], // strip leading /
+					objID: fObj.fontObjID,
+				})
+			}
+		}
+		afIdx := gp.addObj(af)
+		catalogObj := gp.pdfObjs[gp.indexOfCatalogObj].(*CatalogObj)
+		catalogObj.SetIndexObjAcroForm(afIdx)
 	}
 
 	if gp.indexOfPagesObj != -1 {

@@ -764,3 +764,325 @@ func (gp *GoPdf) Clone() (*GoPdf, error)
 ```
 
 通过序列化和重新导入创建 GoPdf 实例的深拷贝。克隆完全独立——对一个的修改不会影响另一个。页眉/页脚回调不会被克隆。
+
+---
+
+## 文档清洗
+
+```go
+func (gp *GoPdf) Scrub(opt ScrubOption)
+func DefaultScrubOption() ScrubOption
+```
+
+移除 PDF 中的敏感数据。灵感来自 PyMuPDF 的 `Document.scrub()` 方法。
+
+### ScrubOption
+
+```go
+type ScrubOption struct {
+    Metadata      bool // 移除标准 PDF 元数据（/Info 字典）
+    XMLMetadata   bool // 移除 XMP 元数据流
+    EmbeddedFiles bool // 移除所有嵌入文件附件
+    PageLabels    bool // 移除页面标签定义
+}
+```
+
+`DefaultScrubOption()` 返回所有字段均为 `true` 的 `ScrubOption`。
+
+清洗后，调用 `GarbageCollect(GCCompact)` 并保存以确保已移除的数据被物理清除。
+
+---
+
+## 可选内容组（图层）
+
+```go
+func (gp *GoPdf) AddOCG(ocg OCG) OCG
+func (gp *GoPdf) GetOCGs() []OCG
+```
+
+添加 PDF 图层（可选内容组），支持选择性显示/隐藏。图层会显示在 PDF 阅读器的图层面板中。
+
+### OCG
+
+```go
+type OCG struct {
+    Name     string    // 图层显示名称
+    Intent   OCGIntent // 可见性意图（"View" 或 "Design"）
+    On       bool      // 是否初始可见
+}
+```
+
+### OCGIntent
+
+```go
+type OCGIntent string
+
+const (
+    OCGIntentView   OCGIntent = "View"   // 用于查看
+    OCGIntentDesign OCGIntent = "Design" // 用于设计
+)
+```
+
+---
+
+## 页面布局与页面模式
+
+```go
+func (gp *GoPdf) SetPageLayout(layout PageLayout)
+func (gp *GoPdf) GetPageLayout() PageLayout
+func (gp *GoPdf) SetPageMode(mode PageMode)
+func (gp *GoPdf) GetPageMode() PageMode
+```
+
+控制 PDF 阅读器打开文档时的显示方式。
+
+### PageLayout
+
+```go
+type PageLayout string
+
+const (
+    PageLayoutSinglePage      PageLayout = "SinglePage"      // 每次显示一页
+    PageLayoutOneColumn       PageLayout = "OneColumn"       // 连续单列
+    PageLayoutTwoColumnLeft   PageLayout = "TwoColumnLeft"   // 双列，奇数页在左
+    PageLayoutTwoColumnRight  PageLayout = "TwoColumnRight"  // 双列，奇数页在右
+    PageLayoutTwoPageLeft     PageLayout = "TwoPageLeft"     // 双页，奇数页在左
+    PageLayoutTwoPageRight    PageLayout = "TwoPageRight"    // 双页，奇数页在右
+)
+```
+
+### PageMode
+
+```go
+type PageMode string
+
+const (
+    PageModeUseNone        PageMode = "UseNone"        // 不显示面板（默认）
+    PageModeUseOutlines    PageMode = "UseOutlines"    // 显示书签面板
+    PageModeUseThumbs      PageMode = "UseThumbs"      // 显示缩略图面板
+    PageModeFullScreen     PageMode = "FullScreen"     // 全屏模式
+    PageModeUseOC          PageMode = "UseOC"          // 显示图层面板
+    PageModeUseAttachments PageMode = "UseAttachments" // 显示附件面板
+)
+```
+
+---
+
+## 文档统计
+
+```go
+func (gp *GoPdf) GetDocumentStats() DocumentStats
+func (gp *GoPdf) GetFonts() []FontInfo
+```
+
+### DocumentStats
+
+```go
+type DocumentStats struct {
+    PageCount          int        // 总页数
+    ObjectCount        int        // PDF 对象总数
+    LiveObjectCount    int        // 非空对象数
+    FontCount          int        // 字体对象数
+    ImageCount         int        // 图片对象数
+    ContentStreamCount int        // 内容流对象数
+    HasOutlines        bool       // 是否有书签
+    HasEmbeddedFiles   bool       // 是否有附件
+    HasXMPMetadata     bool       // 是否设置了 XMP 元数据
+    HasPageLabels      bool       // 是否定义了页面标签
+    HasOCGs            bool       // 是否定义了可选内容组
+    PDFVersion         PDFVersion // 配置的 PDF 版本
+}
+```
+
+### FontInfo
+
+```go
+type FontInfo struct {
+    Family     string // 字体族名称
+    Style      int    // 字体样式（Regular、Bold、Italic）
+    IsEmbedded bool   // 字体文件是否已嵌入
+    Index      int    // 内部对象索引
+}
+```
+
+---
+
+## 目录/书签
+
+```go
+func (gp *GoPdf) GetTOC() []TOCItem
+func (gp *GoPdf) SetTOC(items []TOCItem) error
+```
+
+读写文档的大纲（书签）树。`GetTOC` 返回带层级信息的扁平列表。`SetTOC` 替换整个大纲树。
+
+### TOCItem
+
+```go
+type TOCItem struct {
+    Level  int     // 层级（1 = 顶层）
+    Title  string  // 书签标题文本
+    PageNo int     // 目标页码（从 1 开始）
+    Y      float64 // 目标页面上的垂直位置（距顶部的磅数）
+}
+```
+
+`SetTOC` 验证规则：
+- 第一项必须为 `Level` 1。
+- 层级最多只能比前一项增加 1。
+- 验证失败时返回 `ErrInvalidTOCLevel`。
+
+---
+
+## 文本提取
+
+```go
+func ExtractTextFromPage(pdfData []byte, pageIndex int) ([]ExtractedText, error)
+func ExtractTextFromAllPages(pdfData []byte) (map[int][]ExtractedText, error)
+func ExtractPageText(pdfData []byte, pageIndex int) (string, error)
+```
+
+从已有 PDF 文件中提取文本内容。这些是包级函数（非 GoPdf 方法）。
+
+- `ExtractTextFromPage` — 从单个页面（0 起始索引）提取带位置、字体、字号信息的文本项。
+- `ExtractTextFromAllPages` — 从所有页面提取文本，返回页面索引到文本项的映射。
+- `ExtractPageText` — 便捷包装，将页面所有文本作为单个字符串返回。
+
+### ExtractedText
+
+```go
+type ExtractedText struct {
+    Text     string  // 提取的文本字符串
+    X        float64 // 水平位置
+    Y        float64 // 垂直位置
+    FontName string  // PDF 字体资源名称（如 "LiberationSerif-Regular"）
+    FontSize float64 // 字号（磅）
+}
+```
+
+---
+
+## 图片提取
+
+```go
+func ExtractImagesFromPage(pdfData []byte, pageIndex int) ([]ExtractedImage, error)
+func ExtractImagesFromAllPages(pdfData []byte) (map[int][]ExtractedImage, error)
+```
+
+从已有 PDF 文件中提取图片元数据和数据。这些是包级函数。
+
+### ExtractedImage
+
+```go
+type ExtractedImage struct {
+    Name             string  // XObject 资源名称（如 "/Im1"）
+    Width            int     // 图片宽度（像素）
+    Height           int     // 图片高度（像素）
+    BitsPerComponent int     // 每颜色分量位数
+    ColorSpace       string  // 颜色空间名称（如 "DeviceRGB"）
+    Filter           string  // 压缩过滤器（如 "DCTDecode"）
+    Data             []byte  // 原始图片数据
+    ObjNum           int     // PDF 对象编号
+    X, Y             float64 // 页面上的位置
+    DisplayWidth     float64 // 页面上的渲染宽度
+    DisplayHeight    float64 // 页面上的渲染高度
+}
+
+func (img *ExtractedImage) GetImageFormat() string
+```
+
+`GetImageFormat` 根据过滤器返回可能的图片格式："jpeg"、"jp2"、"tiff"、"png" 或 "raw"。
+
+---
+
+## 表单字段 (AcroForm)
+
+```go
+func (gp *GoPdf) AddFormField(field FormField) error
+func (gp *GoPdf) AddTextField(name string, x, y, w, h float64) error
+func (gp *GoPdf) AddCheckbox(name string, x, y, size float64, checked bool) error
+func (gp *GoPdf) AddDropdown(name string, x, y, w, h float64, options []string) error
+func (gp *GoPdf) AddSignatureField(name string, x, y, w, h float64) error
+func (gp *GoPdf) GetFormFields() []FormField
+```
+
+向 PDF 页面添加交互式表单字段（Widget）。字段在 PDF 阅读器中显示为可交互元素。
+
+### FormFieldType
+
+```go
+const (
+    FormFieldText      FormFieldType = iota // 文本输入
+    FormFieldCheckbox                       // 复选框
+    FormFieldRadio                          // 单选按钮
+    FormFieldChoice                         // 下拉框/列表
+    FormFieldButton                         // 按钮
+    FormFieldSignature                      // 签名
+)
+```
+
+### FormField
+
+```go
+type FormField struct {
+    Type        FormFieldType
+    Name        string     // 唯一字段标识符
+    X, Y        float64   // 左上角位置
+    W, H        float64   // 宽度和高度
+    Value       string     // 默认值
+    FontFamily  string     // 字体族（需预加载）
+    FontSize    float64    // 字号（默认 12）
+    Options     []string   // Choice 字段的选项列表
+    MaxLen      int        // 文本字段最大字符数
+    Multiline   bool       // 多行文本输入
+    ReadOnly    bool       // 只读
+    Required    bool       // 必填
+    Color       [3]uint8   // 文本颜色 [R, G, B]
+    BorderColor [3]uint8   // 边框颜色 [R, G, B]
+    FillColor   [3]uint8   // 背景填充颜色 [R, G, B]
+    HasBorder   bool       // 绘制边框
+    HasFill     bool       // 绘制背景填充
+    Checked     bool       // 复选框初始状态
+}
+```
+
+---
+
+## 数字签名
+
+```go
+func (gp *GoPdf) SignPDF(cfg SignatureConfig, w io.Writer) error
+func (gp *GoPdf) SignPDFToFile(cfg SignatureConfig, path string) error
+func VerifySignature(pdfData []byte) ([]SignatureVerifyResult, error)
+func VerifySignatureFromFile(path string) ([]SignatureVerifyResult, error)
+```
+
+使用 PKCS#7 分离签名对 PDF 文档进行数字签名，并验证已有签名。
+
+### SignatureConfig
+
+```go
+type SignatureConfig struct {
+    Certificate      *x509.Certificate   // 签名证书
+    CertificateChain []*x509.Certificate // 可选的中间证书链
+    PrivateKey       crypto.Signer       // RSA 或 ECDSA 私钥
+    Reason           string              // 签名原因
+    Location         string              // 签名地点
+    ContactInfo      string              // 签名者联系信息
+    Name             string              // 签名者姓名（默认使用证书 CN）
+    SignTime         time.Time           // 签名时间（默认当前时间）
+    SignatureFieldName string            // 字段名称（默认 "Signature1"）
+    Visible          bool                // 可见签名外观
+    X, Y, W, H      float64             // 可见签名矩形
+    PageNo           int                 // 页码（从 1 开始）
+}
+```
+
+### 辅助函数
+
+```go
+func LoadCertificateFromPEM(certPath string) (*x509.Certificate, error)
+func LoadPrivateKeyFromPEM(keyPath string) (crypto.Signer, error)
+func ParseCertificatePEM(data []byte) (*x509.Certificate, error)
+func ParsePrivateKeyPEM(data []byte) (crypto.Signer, error)
+```

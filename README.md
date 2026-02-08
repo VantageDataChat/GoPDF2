@@ -30,6 +30,15 @@ Requires Go 1.13+.
 - **Incremental save** — write only modified objects via `IncrementalSave` for fast saves on large documents
 - **XMP metadata** — embed full XMP metadata streams (Dublin Core, PDF/A, etc.) via `SetXMPMetadata`
 - **Document cloning** — deep copy a GoPdf instance via `Clone` for independent modifications
+- **Document scrubbing** — remove sensitive metadata, XMP, embedded files, page labels via `Scrub`
+- **Optional Content Groups (Layers)** — add PDF layers for selective visibility via `AddOCG` / `GetOCGs`
+- **Page layout & page mode** — control viewer display via `SetPageLayout` / `SetPageMode`
+- **Document statistics** — inspect document structure via `GetDocumentStats` / `GetFonts`
+- **TOC / Bookmarks** — read and write hierarchical outline trees via `GetTOC` / `SetTOC`
+- **Text extraction** — extract text with positions from existing PDFs via `ExtractTextFromPage` / `ExtractPageText`
+- **Image extraction** — extract images with metadata from existing PDFs via `ExtractImagesFromPage` / `ExtractImagesFromAllPages`
+- **Form fields (AcroForm)** — add interactive form fields (text, checkbox, dropdown, radio, button, signature) via `AddFormField` / `AddTextField` / `AddCheckbox` / `AddDropdown`
+- **Digital signatures** — sign PDFs with PKCS#7 and verify signatures via `SignPDF` / `VerifySignature`
 - Draw lines, ovals, rectangles (with rounded corners), curves, polygons
 - Draw images (JPEG, PNG) with mask, crop, rotation, and transparency
 - Password protection
@@ -584,9 +593,98 @@ clone.Text("Only in clone")
 clone.WritePdf("clone.pdf")
 ```
 
+### Document Scrubbing
+
+Remove sensitive metadata and attachments from a PDF:
+
+```go
+pdf.Scrub(gopdf.DefaultScrubOption())
+pdf.GarbageCollect(gopdf.GCCompact)
+pdf.WritePdf("scrubbed.pdf")
+
+// Selective scrubbing
+pdf.Scrub(gopdf.ScrubOption{
+    Metadata:    true,
+    XMLMetadata: true,
+})
+```
+
+### Optional Content Groups (Layers)
+
+Add PDF layers for selective visibility:
+
+```go
+watermark := pdf.AddOCG(gopdf.OCG{
+    Name:   "Watermark",
+    Intent: gopdf.OCGIntentView,
+    On:     true,
+})
+
+draft := pdf.AddOCG(gopdf.OCG{
+    Name:   "Draft Notes",
+    Intent: gopdf.OCGIntentDesign,
+    On:     false,
+})
+
+layers := pdf.GetOCGs()
+```
+
+### Page Layout & Page Mode
+
+Control how the PDF viewer displays the document:
+
+```go
+// Set page layout
+pdf.SetPageLayout(gopdf.PageLayoutTwoColumnLeft)
+layout := pdf.GetPageLayout()
+
+// Set page mode (which panel opens)
+pdf.SetPageMode(gopdf.PageModeUseOutlines) // show bookmarks panel
+mode := pdf.GetPageMode()
+```
+
+### Document Statistics
+
+Inspect document structure:
+
+```go
+stats := pdf.GetDocumentStats()
+fmt.Printf("Pages: %d, Fonts: %d, Images: %d\n",
+    stats.PageCount, stats.FontCount, stats.ImageCount)
+
+fonts := pdf.GetFonts()
+for _, f := range fonts {
+    fmt.Printf("Font: %s, Embedded: %v\n", f.Family, f.IsEmbedded)
+}
+```
+
+### TOC / Bookmarks
+
+Read and write hierarchical outline trees:
+
+```go
+// Set a hierarchical TOC
+pdf.SetTOC([]gopdf.TOCItem{
+    {Level: 1, Title: "Chapter 1", PageNo: 1},
+    {Level: 2, Title: "Section 1.1", PageNo: 1, Y: 200},
+    {Level: 2, Title: "Section 1.2", PageNo: 2},
+    {Level: 1, Title: "Chapter 2", PageNo: 3},
+})
+
+// Read back the TOC
+toc := pdf.GetTOC()
+for _, item := range toc {
+    fmt.Printf("L%d: %s -> page %d\n", item.Level, item.Title, item.PageNo)
+}
+```
+
 ## API Reference
 
 See [docs/API.md](docs/API.md) (English) or [docs/API_zh.md](docs/API_zh.md) (中文).
+
+## GoPDF2 vs PyMuPDF
+
+See [docs/COMPARISON.md](docs/COMPARISON.md) (English) or [docs/COMPARISON_zh.md](docs/COMPARISON_zh.md) (中文) for a detailed feature comparison.
 
 ## License
 

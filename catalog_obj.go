@@ -7,10 +7,14 @@ import (
 
 // CatalogObj : catalog dictionary
 type CatalogObj struct { //impl IObj
-	outlinesObjID   int
-	namesObjID      int // index of Names dictionary object (-1 = none)
-	pageLabelsObjID int // index of PageLabels object (-1 = none)
-	metadataObjID   int // index of XMP Metadata stream object (-1 = none)
+	outlinesObjID      int
+	namesObjID         int // index of Names dictionary object (-1 = none)
+	pageLabelsObjID    int // index of PageLabels object (-1 = none)
+	metadataObjID      int // index of XMP Metadata stream object (-1 = none)
+	ocPropertiesObjID  int // index of OCProperties object (-1 = none)
+	acroFormObjID      int // index of AcroForm object (-1 = none)
+	pageLayout         string
+	pageMode           string
 }
 
 func (c *CatalogObj) init(funcGetRoot func() *GoPdf) {
@@ -18,6 +22,8 @@ func (c *CatalogObj) init(funcGetRoot func() *GoPdf) {
 	c.namesObjID = -1
 	c.pageLabelsObjID = -1
 	c.metadataObjID = -1
+	c.ocPropertiesObjID = -1
+	c.acroFormObjID = -1
 }
 
 func (c *CatalogObj) getType() string {
@@ -41,6 +47,18 @@ func (c *CatalogObj) write(w io.Writer, objID int) error {
 	if c.metadataObjID >= 0 {
 		fmt.Fprintf(w, "  /Metadata %d 0 R\n", c.metadataObjID)
 	}
+	if c.ocPropertiesObjID >= 0 {
+		fmt.Fprintf(w, "  /OCProperties %d 0 R\n", c.ocPropertiesObjID)
+	}
+	if c.acroFormObjID >= 0 {
+		fmt.Fprintf(w, "  /AcroForm %d 0 R\n", c.acroFormObjID)
+	}
+	if c.pageLayout != "" {
+		fmt.Fprintf(w, "  /PageLayout /%s\n", c.pageLayout)
+	}
+	if c.pageMode != "" && c.outlinesObjID < 0 {
+		fmt.Fprintf(w, "  /PageMode /%s\n", c.pageMode)
+	}
 	io.WriteString(w, ">>\n")
 	return nil
 }
@@ -62,4 +80,14 @@ func (c *CatalogObj) SetIndexObjPageLabels(index int) {
 // SetIndexObjMetadata sets the XMP Metadata stream object reference.
 func (c *CatalogObj) SetIndexObjMetadata(index int) {
 	c.metadataObjID = index + 1
+}
+
+// SetIndexObjOCProperties sets the OCProperties object reference.
+func (c *CatalogObj) SetIndexObjOCProperties(index int) {
+	c.ocPropertiesObjID = index + 1
+}
+
+// SetIndexObjAcroForm sets the AcroForm object reference.
+func (c *CatalogObj) SetIndexObjAcroForm(index int) {
+	c.acroFormObjID = index + 1
 }

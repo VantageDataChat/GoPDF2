@@ -764,3 +764,325 @@ func (gp *GoPdf) Clone() (*GoPdf, error)
 ```
 
 Creates a deep copy of the GoPdf instance by serializing and re-importing. The clone is fully independent — changes to one do not affect the other. Header/footer callbacks are not cloned.
+
+---
+
+## Document Scrubbing
+
+```go
+func (gp *GoPdf) Scrub(opt ScrubOption)
+func DefaultScrubOption() ScrubOption
+```
+
+Remove potentially sensitive data from the PDF. Inspired by PyMuPDF's `Document.scrub()`.
+
+### ScrubOption
+
+```go
+type ScrubOption struct {
+    Metadata      bool // Remove standard PDF metadata (/Info dictionary)
+    XMLMetadata   bool // Remove XMP metadata stream
+    EmbeddedFiles bool // Remove all embedded file attachments
+    PageLabels    bool // Remove page label definitions
+}
+```
+
+`DefaultScrubOption()` returns a `ScrubOption` with all fields set to `true`.
+
+After scrubbing, call `GarbageCollect(GCCompact)` and save to ensure removed data is physically purged.
+
+---
+
+## Optional Content Groups (Layers)
+
+```go
+func (gp *GoPdf) AddOCG(ocg OCG) OCG
+func (gp *GoPdf) GetOCGs() []OCG
+```
+
+Add PDF layers (Optional Content Groups) for selective visibility. Layers appear in the PDF viewer's layer panel.
+
+### OCG
+
+```go
+type OCG struct {
+    Name     string    // Display name of the layer
+    Intent   OCGIntent // Visibility intent ("View" or "Design")
+    On       bool      // Initially visible
+}
+```
+
+### OCGIntent
+
+```go
+type OCGIntent string
+
+const (
+    OCGIntentView   OCGIntent = "View"   // For viewing purposes
+    OCGIntentDesign OCGIntent = "Design" // For design purposes
+)
+```
+
+---
+
+## Page Layout & Page Mode
+
+```go
+func (gp *GoPdf) SetPageLayout(layout PageLayout)
+func (gp *GoPdf) GetPageLayout() PageLayout
+func (gp *GoPdf) SetPageMode(mode PageMode)
+func (gp *GoPdf) GetPageMode() PageMode
+```
+
+Control how the PDF viewer displays the document when opened.
+
+### PageLayout
+
+```go
+type PageLayout string
+
+const (
+    PageLayoutSinglePage      PageLayout = "SinglePage"      // One page at a time
+    PageLayoutOneColumn       PageLayout = "OneColumn"       // Continuous column
+    PageLayoutTwoColumnLeft   PageLayout = "TwoColumnLeft"   // Two columns, odd on left
+    PageLayoutTwoColumnRight  PageLayout = "TwoColumnRight"  // Two columns, odd on right
+    PageLayoutTwoPageLeft     PageLayout = "TwoPageLeft"     // Two pages, odd on left
+    PageLayoutTwoPageRight    PageLayout = "TwoPageRight"    // Two pages, odd on right
+)
+```
+
+### PageMode
+
+```go
+type PageMode string
+
+const (
+    PageModeUseNone        PageMode = "UseNone"        // No panel (default)
+    PageModeUseOutlines    PageMode = "UseOutlines"    // Bookmarks panel
+    PageModeUseThumbs      PageMode = "UseThumbs"      // Thumbnails panel
+    PageModeFullScreen     PageMode = "FullScreen"     // Full-screen mode
+    PageModeUseOC          PageMode = "UseOC"          // Layers panel
+    PageModeUseAttachments PageMode = "UseAttachments" // Attachments panel
+)
+```
+
+---
+
+## Document Statistics
+
+```go
+func (gp *GoPdf) GetDocumentStats() DocumentStats
+func (gp *GoPdf) GetFonts() []FontInfo
+```
+
+### DocumentStats
+
+```go
+type DocumentStats struct {
+    PageCount          int        // Total number of pages
+    ObjectCount        int        // Total number of PDF objects
+    LiveObjectCount    int        // Number of non-null objects
+    FontCount          int        // Number of font objects
+    ImageCount         int        // Number of image objects
+    ContentStreamCount int        // Number of content stream objects
+    HasOutlines        bool       // Document has bookmarks
+    HasEmbeddedFiles   bool       // Document has attachments
+    HasXMPMetadata     bool       // XMP metadata is set
+    HasPageLabels      bool       // Page labels are defined
+    HasOCGs            bool       // Optional content groups are defined
+    PDFVersion         PDFVersion // Configured PDF version
+}
+```
+
+### FontInfo
+
+```go
+type FontInfo struct {
+    Family     string // Font family name
+    Style      int    // Font style (Regular, Bold, Italic)
+    IsEmbedded bool   // Whether the font file is embedded
+    Index      int    // Internal object index
+}
+```
+
+---
+
+## TOC / Bookmarks
+
+```go
+func (gp *GoPdf) GetTOC() []TOCItem
+func (gp *GoPdf) SetTOC(items []TOCItem) error
+```
+
+Read and write the document's outline (bookmark) tree. `GetTOC` returns a flat list with hierarchy levels. `SetTOC` replaces the entire outline tree.
+
+### TOCItem
+
+```go
+type TOCItem struct {
+    Level  int     // Hierarchy level (1 = top level)
+    Title  string  // Bookmark title text
+    PageNo int     // 1-based target page number
+    Y      float64 // Vertical position on target page (points from top)
+}
+```
+
+`SetTOC` validation rules:
+- The first item must have `Level` 1.
+- Levels may increase by at most 1 from one item to the next.
+- Returns `ErrInvalidTOCLevel` on validation failure.
+
+---
+
+## Text Extraction
+
+```go
+func ExtractTextFromPage(pdfData []byte, pageIndex int) ([]ExtractedText, error)
+func ExtractTextFromAllPages(pdfData []byte) (map[int][]ExtractedText, error)
+func ExtractPageText(pdfData []byte, pageIndex int) (string, error)
+```
+
+Extract text content from existing PDF files. These are package-level functions (not methods on GoPdf).
+
+- `ExtractTextFromPage` — extracts text items with position, font, and size from a single page (0-based index).
+- `ExtractTextFromAllPages` — extracts text from all pages, returning a map of page index to text items.
+- `ExtractPageText` — convenience wrapper that returns all text from a page as a single string.
+
+### ExtractedText
+
+```go
+type ExtractedText struct {
+    Text     string  // The extracted text string
+    X        float64 // Horizontal position
+    Y        float64 // Vertical position
+    FontName string  // PDF font resource name (e.g. "LiberationSerif-Regular")
+    FontSize float64 // Font size in points
+}
+```
+
+---
+
+## Image Extraction
+
+```go
+func ExtractImagesFromPage(pdfData []byte, pageIndex int) ([]ExtractedImage, error)
+func ExtractImagesFromAllPages(pdfData []byte) (map[int][]ExtractedImage, error)
+```
+
+Extract image metadata and data from existing PDF files. These are package-level functions.
+
+### ExtractedImage
+
+```go
+type ExtractedImage struct {
+    Name             string  // XObject resource name (e.g. "/Im1")
+    Width            int     // Image width in pixels
+    Height           int     // Image height in pixels
+    BitsPerComponent int     // Bits per color component
+    ColorSpace       string  // Color space name (e.g. "DeviceRGB")
+    Filter           string  // Compression filter (e.g. "DCTDecode")
+    Data             []byte  // Raw image data
+    ObjNum           int     // PDF object number
+    X, Y             float64 // Position on the page
+    DisplayWidth     float64 // Rendered width on the page
+    DisplayHeight    float64 // Rendered height on the page
+}
+
+func (img *ExtractedImage) GetImageFormat() string
+```
+
+`GetImageFormat` returns the likely image format based on the filter: "jpeg", "jp2", "tiff", "png", or "raw".
+
+---
+
+## Form Fields (AcroForm)
+
+```go
+func (gp *GoPdf) AddFormField(field FormField) error
+func (gp *GoPdf) AddTextField(name string, x, y, w, h float64) error
+func (gp *GoPdf) AddCheckbox(name string, x, y, size float64, checked bool) error
+func (gp *GoPdf) AddDropdown(name string, x, y, w, h float64, options []string) error
+func (gp *GoPdf) AddSignatureField(name string, x, y, w, h float64) error
+func (gp *GoPdf) GetFormFields() []FormField
+```
+
+Add interactive form fields (widgets) to PDF pages. Fields appear as interactive elements in PDF viewers.
+
+### FormFieldType
+
+```go
+const (
+    FormFieldText      FormFieldType = iota // Text input
+    FormFieldCheckbox                       // Checkbox
+    FormFieldRadio                          // Radio button
+    FormFieldChoice                         // Dropdown/list
+    FormFieldButton                         // Push button
+    FormFieldSignature                      // Signature
+)
+```
+
+### FormField
+
+```go
+type FormField struct {
+    Type        FormFieldType
+    Name        string     // Unique field identifier
+    X, Y        float64   // Top-left corner position
+    W, H        float64   // Width and height
+    Value       string     // Default value
+    FontFamily  string     // Font family (must be pre-loaded)
+    FontSize    float64    // Font size (default 12)
+    Options     []string   // Choices for Choice fields
+    MaxLen      int        // Max character length for text fields
+    Multiline   bool       // Multi-line text input
+    ReadOnly    bool       // Non-editable
+    Required    bool       // Required field
+    Color       [3]uint8   // Text color [R, G, B]
+    BorderColor [3]uint8   // Border color [R, G, B]
+    FillColor   [3]uint8   // Background fill color [R, G, B]
+    HasBorder   bool       // Draw border
+    HasFill     bool       // Draw background fill
+    Checked     bool       // Initial checkbox state
+}
+```
+
+---
+
+## Digital Signatures
+
+```go
+func (gp *GoPdf) SignPDF(cfg SignatureConfig, w io.Writer) error
+func (gp *GoPdf) SignPDFToFile(cfg SignatureConfig, path string) error
+func VerifySignature(pdfData []byte) ([]SignatureVerifyResult, error)
+func VerifySignatureFromFile(path string) ([]SignatureVerifyResult, error)
+```
+
+Sign PDF documents with PKCS#7 detached signatures and verify existing signatures.
+
+### SignatureConfig
+
+```go
+type SignatureConfig struct {
+    Certificate      *x509.Certificate   // Signing certificate
+    CertificateChain []*x509.Certificate // Optional intermediate chain
+    PrivateKey       crypto.Signer       // RSA or ECDSA private key
+    Reason           string              // Reason for signing
+    Location         string              // Signing location
+    ContactInfo      string              // Signer contact info
+    Name             string              // Signer name (defaults to cert CN)
+    SignTime         time.Time           // Signing time (defaults to now)
+    SignatureFieldName string            // Field name (defaults to "Signature1")
+    Visible          bool                // Visible signature appearance
+    X, Y, W, H      float64             // Visible signature rectangle
+    PageNo           int                 // 1-based page number
+}
+```
+
+### Helper Functions
+
+```go
+func LoadCertificateFromPEM(certPath string) (*x509.Certificate, error)
+func LoadPrivateKeyFromPEM(keyPath string) (crypto.Signer, error)
+func ParseCertificatePEM(data []byte) (*x509.Certificate, error)
+func ParsePrivateKeyPEM(data []byte) (crypto.Signer, error)
+```

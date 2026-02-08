@@ -30,6 +30,15 @@ GoPDF2 是一个用 Go 编写的 PDF 生成库。基于 [gopdf](https://github.c
 - **增量保存** — 通过 `IncrementalSave` 仅写入修改过的对象，大幅提升大文档保存速度
 - **XMP 元数据** — 通过 `SetXMPMetadata` 嵌入完整的 XMP 元数据流（Dublin Core、PDF/A 等）
 - **文档克隆** — 通过 `Clone` 深拷贝 GoPdf 实例，独立修改互不影响
+- **文档清洗** — 通过 `Scrub` 移除敏感元数据、XMP、嵌入文件、页面标签
+- **可选内容组（图层）** — 通过 `AddOCG` / `GetOCGs` 添加 PDF 图层，支持选择性显示/隐藏
+- **页面布局与页面模式** — 通过 `SetPageLayout` / `SetPageMode` 控制阅读器显示方式
+- **文档统计** — 通过 `GetDocumentStats` / `GetFonts` 查看文档结构信息
+- **目录/书签** — 通过 `GetTOC` / `SetTOC` 读写层级化的大纲书签树
+- **文本提取** — 通过 `ExtractTextFromPage` / `ExtractPageText` 从已有 PDF 中提取带位置信息的文本
+- **图片提取** — 通过 `ExtractImagesFromPage` / `ExtractImagesFromAllPages` 从已有 PDF 中提取图片及元数据
+- **表单字段 (AcroForm)** — 通过 `AddFormField` / `AddTextField` / `AddCheckbox` / `AddDropdown` 添加交互式表单字段（文本、复选框、下拉框、单选、按钮、签名）
+- **数字签名** — 通过 `SignPDF` / `VerifySignature` 进行 PKCS#7 签名与验证
 - 绘制线条、椭圆、矩形（支持圆角）、曲线、多边形
 - 插入图片（JPEG、PNG），支持遮罩、裁剪、旋转、透明度
 - PDF 密码保护
@@ -584,9 +593,98 @@ clone.Text("仅在克隆中")
 clone.WritePdf("clone.pdf")
 ```
 
+### 文档清洗
+
+移除 PDF 中的敏感元数据和附件：
+
+```go
+pdf.Scrub(gopdf.DefaultScrubOption())
+pdf.GarbageCollect(gopdf.GCCompact)
+pdf.WritePdf("scrubbed.pdf")
+
+// 选择性清洗
+pdf.Scrub(gopdf.ScrubOption{
+    Metadata:    true,
+    XMLMetadata: true,
+})
+```
+
+### 可选内容组（图层）
+
+添加 PDF 图层，支持选择性显示/隐藏：
+
+```go
+watermark := pdf.AddOCG(gopdf.OCG{
+    Name:   "水印",
+    Intent: gopdf.OCGIntentView,
+    On:     true,
+})
+
+draft := pdf.AddOCG(gopdf.OCG{
+    Name:   "草稿备注",
+    Intent: gopdf.OCGIntentDesign,
+    On:     false,
+})
+
+layers := pdf.GetOCGs()
+```
+
+### 页面布局与页面模式
+
+控制 PDF 阅读器的显示方式：
+
+```go
+// 设置页面布局
+pdf.SetPageLayout(gopdf.PageLayoutTwoColumnLeft)
+layout := pdf.GetPageLayout()
+
+// 设置页面模式（打开时显示哪个面板）
+pdf.SetPageMode(gopdf.PageModeUseOutlines) // 显示书签面板
+mode := pdf.GetPageMode()
+```
+
+### 文档统计
+
+查看文档结构信息：
+
+```go
+stats := pdf.GetDocumentStats()
+fmt.Printf("页数: %d, 字体: %d, 图片: %d\n",
+    stats.PageCount, stats.FontCount, stats.ImageCount)
+
+fonts := pdf.GetFonts()
+for _, f := range fonts {
+    fmt.Printf("字体: %s, 已嵌入: %v\n", f.Family, f.IsEmbedded)
+}
+```
+
+### 目录/书签
+
+读写层级化的大纲书签树：
+
+```go
+// 设置层级化目录
+pdf.SetTOC([]gopdf.TOCItem{
+    {Level: 1, Title: "第一章", PageNo: 1},
+    {Level: 2, Title: "第 1.1 节", PageNo: 1, Y: 200},
+    {Level: 2, Title: "第 1.2 节", PageNo: 2},
+    {Level: 1, Title: "第二章", PageNo: 3},
+})
+
+// 读取目录
+toc := pdf.GetTOC()
+for _, item := range toc {
+    fmt.Printf("L%d: %s -> 第 %d 页\n", item.Level, item.Title, item.PageNo)
+}
+```
+
 ## API 参考
 
 参见 [docs/API.md](docs/API.md)（English）或 [docs/API_zh.md](docs/API_zh.md)（中文）。
+
+## GoPDF2 与 PyMuPDF 对比
+
+参见 [docs/COMPARISON.md](docs/COMPARISON.md)（English）或 [docs/COMPARISON_zh.md](docs/COMPARISON_zh.md)（中文），了解两者的详细功能差异。
 
 ## 许可证
 

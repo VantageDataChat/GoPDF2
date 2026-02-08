@@ -2,7 +2,14 @@ package gopdf
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"io"
+	"math/big"
 	"os"
 	"testing"
 	"time"
@@ -1351,4 +1358,604 @@ func TestAllFeatures_MultiPageMixed(t *testing.T) {
 	if err := pdf.WritePdf(resOutDir + "/all_multipage_mixed.pdf"); err != nil {
 		t.Fatalf("WritePdf: %v", err)
 	}
+}
+
+// ============================================================
+// 31. Digital Signatures
+// ============================================================
+
+// allFeaturesTestCert creates a self-signed ECDSA certificate for testing.
+func allFeaturesTestCert(t *testing.T) (*x509.Certificate, *ecdsa.PrivateKey) {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generate ECDSA key: %v", err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(42),
+		Subject: pkix.Name{
+			CommonName:   "AllFeatures Test Signer",
+			Organization: []string{"GoPDF2 Test"},
+		},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+		BasicConstraintsValid: true,
+	}
+	certDER, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("create certificate: %v", err)
+	}
+	cert, err := x509.ParseCertificate(certDER)
+	if err != nil {
+		t.Fatalf("parse certificate: %v", err)
+	}
+	return cert, key
+}
+
+// allFeaturesTestRSACert creates a self-signed RSA certificate for testing.
+func allFeaturesTestRSACert(t *testing.T) (*x509.Certificate, *rsa.PrivateKey) {
+	t.Helper()
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate RSA key: %v", err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(99),
+		Subject: pkix.Name{
+			CommonName:   "RSA Test Signer",
+			Organization: []string{"GoPDF2 Test"},
+		},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+		BasicConstraintsValid: true,
+	}
+	certDER, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("create RSA certificate: %v", err)
+	}
+	cert, err := x509.ParseCertificate(certDER)
+	if err != nil {
+		t.Fatalf("parse RSA certificate: %v", err)
+	}
+	return cert, key
+}
+
+func TestAllFeatures_DigitalSignature(t *testing.T) {
+	ensureOutDir(t)
+
+	// ---- 31a. Basic invisible ECDSA signature ----
+	t.Run("InvisibleECDSA", func(t *testing.T) {
+		cert, key := allFeaturesTestCert(t)
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+		pdf.SetXY(50, 50)
+		pdf.Cell(nil, "Invisible ECDSA Signed Document")
+
+		var buf bytes.Buffer
+		err := pdf.SignPDF(SignatureConfig{
+			Certificate: cert,
+			PrivateKey:  key,
+			Reason:      "Quality Assurance",
+			Location:    "Test Lab",
+			ContactInfo: "qa@example.com",
+		}, &buf)
+		if err != nil {
+			t.Fatalf("SignPDF: %v", err)
+		}
+		if !bytes.HasPrefix(buf.Bytes(), []byte("%PDF-")) {
+			t.Fatal("output is not a valid PDF")
+		}
+		if err := os.WriteFile(resOutDir+"/all_sig_invisible_ecdsa.pdf", buf.Bytes(), 0644); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+	})
+
+	// ---- 31b. Visible ECDSA signature ----
+	t.Run("VisibleECDSA", func(t *testing.T) {
+		cert, key := allFeaturesTestCert(t)
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+		pdf.SetXY(50, 50)
+		pdf.Cell(nil, "Visible ECDSA Signed Document")
+
+		var buf bytes.Buffer
+		err := pdf.SignPDF(SignatureConfig{
+			Certificate: cert,
+			PrivateKey:  key,
+			Reason:      "Approved",
+			Location:    "Beijing",
+			Visible:     true,
+			X:           50,
+			Y:           700,
+			W:           200,
+			H:           50,
+			PageNo:      1,
+		}, &buf)
+		if err != nil {
+			t.Fatalf("SignPDF visible: %v", err)
+		}
+		os.WriteFile(resOutDir+"/all_sig_visible_ecdsa.pdf", buf.Bytes(), 0644)
+	})
+
+	// ---- 31c. RSA signature + verify round-trip ----
+	t.Run("RSASignAndVerify", func(t *testing.T) {
+		cert, key := allFeaturesTestRSACert(t)
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+		pdf.SetXY(50, 50)
+		pdf.Cell(nil, "RSA Signed Document")
+
+		var buf bytes.Buffer
+		err := pdf.SignPDF(SignatureConfig{
+			Certificate: cert,
+			PrivateKey:  key,
+			Reason:      "RSA Approval",
+			Location:    "Shanghai",
+			Name:        "RSA Test Signer",
+		}, &buf)
+		if err != nil {
+			t.Fatalf("SignPDF RSA: %v", err)
+		}
+
+		results, err := VerifySignature(buf.Bytes())
+		if err != nil {
+			t.Fatalf("VerifySignature: %v", err)
+		}
+		if len(results) == 0 {
+			t.Fatal("no signatures found")
+		}
+		if !results[0].Valid {
+			t.Fatalf("RSA signature invalid: %v", results[0].Error)
+		}
+		if results[0].SignerName != "RSA Test Signer" {
+			t.Errorf("signer = %q, want %q", results[0].SignerName, "RSA Test Signer")
+		}
+		if results[0].Reason != "RSA Approval" {
+			t.Errorf("reason = %q, want %q", results[0].Reason, "RSA Approval")
+		}
+	})
+
+	// ---- 31d. ECDSA verify round-trip with metadata ----
+	t.Run("ECDSAVerifyRoundTrip", func(t *testing.T) {
+		cert, key := allFeaturesTestCert(t)
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+		pdf.SetXY(50, 50)
+		pdf.Cell(nil, "ECDSA Verify Round Trip")
+
+		signTime := time.Date(2025, 6, 15, 10, 30, 0, 0, time.UTC)
+		var buf bytes.Buffer
+		err := pdf.SignPDF(SignatureConfig{
+			Certificate:        cert,
+			PrivateKey:         key,
+			Reason:             "Contract Execution",
+			Location:           "Shenzhen",
+			ContactInfo:        "legal@example.com",
+			SignatureFieldName: "ContractSig",
+			SignTime:           signTime,
+		}, &buf)
+		if err != nil {
+			t.Fatalf("SignPDF: %v", err)
+		}
+
+		results, err := VerifySignature(buf.Bytes())
+		if err != nil {
+			t.Fatalf("VerifySignature: %v", err)
+		}
+		if len(results) != 1 {
+			t.Fatalf("expected 1 signature, got %d", len(results))
+		}
+		r := results[0]
+		if !r.Valid {
+			t.Fatalf("signature invalid: %v", r.Error)
+		}
+		if r.Reason != "Contract Execution" {
+			t.Errorf("reason = %q, want %q", r.Reason, "Contract Execution")
+		}
+		if r.Location != "Shenzhen" {
+			t.Errorf("location = %q, want %q", r.Location, "Shenzhen")
+		}
+	})
+
+	// ---- 31e. Multi-page document with signature on page 2 ----
+	t.Run("MultiPageVisibleOnPage2", func(t *testing.T) {
+		cert, key := allFeaturesTestCert(t)
+		pdf := newPDFWithFont(t)
+
+		pdf.AddPage()
+		pdf.SetXY(50, 50)
+		pdf.Cell(nil, "Page 1 — no signature here")
+
+		pdf.AddPage()
+		pdf.SetXY(50, 50)
+		pdf.Cell(nil, "Page 2 — signature below")
+
+		var buf bytes.Buffer
+		err := pdf.SignPDF(SignatureConfig{
+			Certificate: cert,
+			PrivateKey:  key,
+			Reason:      "Page 2 Approval",
+			Visible:     true,
+			X:           50,
+			Y:           600,
+			W:           250,
+			H:           60,
+			PageNo:      2,
+		}, &buf)
+		if err != nil {
+			t.Fatalf("SignPDF multi-page: %v", err)
+		}
+
+		results, err := VerifySignature(buf.Bytes())
+		if err != nil {
+			t.Fatalf("VerifySignature: %v", err)
+		}
+		if !results[0].Valid {
+			t.Fatalf("multi-page signature invalid: %v", results[0].Error)
+		}
+		os.WriteFile(resOutDir+"/all_sig_multipage.pdf", buf.Bytes(), 0644)
+	})
+
+	// ---- 31f. Signature with certificate chain ----
+	t.Run("CertificateChain", func(t *testing.T) {
+		// Create a CA cert, then sign a leaf cert with it
+		caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			t.Fatalf("generate CA key: %v", err)
+		}
+		caTmpl := &x509.Certificate{
+			SerialNumber: big.NewInt(100),
+			Subject: pkix.Name{
+				CommonName:   "Test CA",
+				Organization: []string{"GoPDF2 Test CA"},
+			},
+			NotBefore:             time.Now().Add(-time.Hour),
+			NotAfter:              time.Now().Add(24 * time.Hour),
+			KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+			BasicConstraintsValid: true,
+			IsCA:                  true,
+		}
+		caCertDER, err := x509.CreateCertificate(rand.Reader, caTmpl, caTmpl, &caKey.PublicKey, caKey)
+		if err != nil {
+			t.Fatalf("create CA cert: %v", err)
+		}
+		caCert, _ := x509.ParseCertificate(caCertDER)
+
+		leafKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		leafTmpl := &x509.Certificate{
+			SerialNumber: big.NewInt(101),
+			Subject: pkix.Name{
+				CommonName:   "Leaf Signer",
+				Organization: []string{"GoPDF2 Test"},
+			},
+			NotBefore:             time.Now().Add(-time.Hour),
+			NotAfter:              time.Now().Add(24 * time.Hour),
+			KeyUsage:              x509.KeyUsageDigitalSignature,
+			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+			BasicConstraintsValid: true,
+		}
+		leafCertDER, err := x509.CreateCertificate(rand.Reader, leafTmpl, caTmpl, &leafKey.PublicKey, caKey)
+		if err != nil {
+			t.Fatalf("create leaf cert: %v", err)
+		}
+		leafCert, _ := x509.ParseCertificate(leafCertDER)
+
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+		pdf.SetXY(50, 50)
+		pdf.Cell(nil, "Signed with certificate chain")
+
+		var buf bytes.Buffer
+		err = pdf.SignPDF(SignatureConfig{
+			Certificate:      leafCert,
+			CertificateChain: []*x509.Certificate{caCert},
+			PrivateKey:       leafKey,
+			Reason:           "Chain Verification",
+		}, &buf)
+		if err != nil {
+			t.Fatalf("SignPDF with chain: %v", err)
+		}
+		if !bytes.HasPrefix(buf.Bytes(), []byte("%PDF-")) {
+			t.Fatal("output is not a valid PDF")
+		}
+		os.WriteFile(resOutDir+"/all_sig_chain.pdf", buf.Bytes(), 0644)
+	})
+
+	// ---- 31g. Signature field placeholder (unsigned) ----
+	t.Run("SignatureFieldPlaceholder", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+		pdf.SetXY(50, 50)
+		pdf.Cell(nil, "Document with empty signature field")
+
+		if err := pdf.AddSignatureField("approval_sig", 50, 700, 200, 50); err != nil {
+			t.Fatalf("AddSignatureField: %v", err)
+		}
+
+		fields := pdf.GetFormFields()
+		found := false
+		for _, f := range fields {
+			if f.Name == "approval_sig" && f.Type == FormFieldSignature {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatal("signature field not found in form fields")
+		}
+
+		if err := pdf.WritePdf(resOutDir + "/all_sig_field_placeholder.pdf"); err != nil {
+			t.Fatalf("WritePdf: %v", err)
+		}
+	})
+
+	// ---- 31h. Error: missing certificate ----
+	t.Run("ErrorMissingCert", func(t *testing.T) {
+		pdf := &GoPdf{}
+		pdf.Start(Config{PageSize: *PageSizeA4})
+		pdf.AddPage()
+
+		var buf bytes.Buffer
+		err := pdf.SignPDF(SignatureConfig{}, &buf)
+		if err == nil {
+			t.Fatal("expected error for missing certificate")
+		}
+	})
+
+	// ---- 31i. Error: missing private key ----
+	t.Run("ErrorMissingKey", func(t *testing.T) {
+		cert, _ := allFeaturesTestCert(t)
+		pdf := &GoPdf{}
+		pdf.Start(Config{PageSize: *PageSizeA4})
+		pdf.AddPage()
+
+		var buf bytes.Buffer
+		err := pdf.SignPDF(SignatureConfig{Certificate: cert}, &buf)
+		if err == nil {
+			t.Fatal("expected error for missing private key")
+		}
+	})
+
+	// ---- 31j. Verify tampered PDF fails ----
+	t.Run("TamperedPDFInvalid", func(t *testing.T) {
+		cert, key := allFeaturesTestCert(t)
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+		pdf.SetXY(50, 50)
+		pdf.Cell(nil, "Tamper detection test")
+
+		var buf bytes.Buffer
+		if err := pdf.SignPDF(SignatureConfig{
+			Certificate: cert,
+			PrivateKey:  key,
+			Reason:      "Tamper Test",
+		}, &buf); err != nil {
+			t.Fatalf("SignPDF: %v", err)
+		}
+
+		// Tamper with the PDF content (modify a byte in the first range)
+		tampered := make([]byte, buf.Len())
+		copy(tampered, buf.Bytes())
+		// Find "Tamper" in the PDF and change it
+		idx := bytes.Index(tampered, []byte("Tamper"))
+		if idx > 0 {
+			tampered[idx] = 'X' // corrupt the content
+		}
+
+		results, err := VerifySignature(tampered)
+		if err != nil {
+			t.Fatalf("VerifySignature: %v", err)
+		}
+		if len(results) == 0 {
+			t.Fatal("no signatures found in tampered PDF")
+		}
+		if results[0].Valid {
+			t.Fatal("expected tampered PDF signature to be invalid")
+		}
+		t.Logf("Tampered PDF correctly detected: %v", results[0].Error)
+	})
+
+	// ---- 31k. SignPDFToFile convenience method ----
+	t.Run("SignPDFToFile", func(t *testing.T) {
+		cert, key := allFeaturesTestCert(t)
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+		pdf.SetXY(50, 50)
+		pdf.Cell(nil, "SignPDFToFile test")
+
+		outPath := resOutDir + "/all_sig_tofile.pdf"
+		if err := pdf.SignPDFToFile(SignatureConfig{
+			Certificate: cert,
+			PrivateKey:  key,
+			Reason:      "File Output Test",
+		}, outPath); err != nil {
+			t.Fatalf("SignPDFToFile: %v", err)
+		}
+
+		// Read back and verify
+		data, err := os.ReadFile(outPath)
+		if err != nil {
+			t.Fatalf("read back: %v", err)
+		}
+		if !bytes.HasPrefix(data, []byte("%PDF-")) {
+			t.Fatal("file output is not a valid PDF")
+		}
+		results, err := VerifySignature(data)
+		if err != nil {
+			t.Fatalf("VerifySignature: %v", err)
+		}
+		if !results[0].Valid {
+			t.Fatalf("file signature invalid: %v", results[0].Error)
+		}
+	})
+
+	// ---- 31l. PEM parsing utilities ----
+	t.Run("PEMParsing", func(t *testing.T) {
+		cert, key := allFeaturesTestCert(t)
+
+		// Certificate PEM round-trip
+		certPEM := encodeCertToPEM(cert)
+		parsed, err := ParseCertificatePEM(certPEM)
+		if err != nil {
+			t.Fatalf("ParseCertificatePEM: %v", err)
+		}
+		if parsed.Subject.CommonName != "AllFeatures Test Signer" {
+			t.Errorf("CN = %q, want %q", parsed.Subject.CommonName, "AllFeatures Test Signer")
+		}
+
+		// ECDSA key PEM round-trip
+		keyDER, _ := x509.MarshalECPrivateKey(key)
+		keyPEM := encodeToPEM("EC PRIVATE KEY", keyDER)
+		parsedKey, err := ParsePrivateKeyPEM(keyPEM)
+		if err != nil {
+			t.Fatalf("ParsePrivateKeyPEM EC: %v", err)
+		}
+		if _, ok := parsedKey.(*ecdsa.PrivateKey); !ok {
+			t.Fatalf("expected *ecdsa.PrivateKey, got %T", parsedKey)
+		}
+
+		// PKCS8 key PEM round-trip
+		pkcs8DER, _ := x509.MarshalPKCS8PrivateKey(key)
+		pkcs8PEM := encodeToPEM("PRIVATE KEY", pkcs8DER)
+		parsedKey2, err := ParsePrivateKeyPEM(pkcs8PEM)
+		if err != nil {
+			t.Fatalf("ParsePrivateKeyPEM PKCS8: %v", err)
+		}
+		if _, ok := parsedKey2.(*ecdsa.PrivateKey); !ok {
+			t.Fatalf("expected *ecdsa.PrivateKey from PKCS8, got %T", parsedKey2)
+		}
+
+		// RSA key PEM round-trip
+		rsaKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+		rsaDER := x509.MarshalPKCS1PrivateKey(rsaKey)
+		rsaPEM := encodeToPEM("RSA PRIVATE KEY", rsaDER)
+		parsedRSA, err := ParsePrivateKeyPEM(rsaPEM)
+		if err != nil {
+			t.Fatalf("ParsePrivateKeyPEM RSA: %v", err)
+		}
+		if _, ok := parsedRSA.(*rsa.PrivateKey); !ok {
+			t.Fatalf("expected *rsa.PrivateKey, got %T", parsedRSA)
+		}
+
+		// Certificate chain PEM round-trip
+		chainPEM := append(certPEM, certPEM...) // two copies
+		chain, err := ParseCertificateChainPEM(chainPEM)
+		if err != nil {
+			t.Fatalf("ParseCertificateChainPEM: %v", err)
+		}
+		if len(chain) != 2 {
+			t.Errorf("chain length = %d, want 2", len(chain))
+		}
+
+		// Error cases
+		if _, err := ParseCertificatePEM([]byte("not pem")); err == nil {
+			t.Error("expected error for invalid PEM cert")
+		}
+		if _, err := ParsePrivateKeyPEM([]byte("not pem")); err == nil {
+			t.Error("expected error for invalid PEM key")
+		}
+		if _, err := ParseCertificateChainPEM([]byte("not pem")); err == nil {
+			t.Error("expected error for invalid PEM chain")
+		}
+		if _, err := ParsePrivateKeyPEM(encodeToPEM("UNKNOWN KEY", []byte{1, 2, 3})); err == nil {
+			t.Error("expected error for unsupported PEM block type")
+		}
+	})
+
+	// ---- 31m. Verify no signatures in unsigned PDF ----
+	t.Run("VerifyUnsignedPDF", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+		pdf.Cell(nil, "Unsigned document")
+
+		var buf bytes.Buffer
+		pdf.Write(&buf)
+
+		_, err := VerifySignature(buf.Bytes())
+		if err == nil {
+			t.Fatal("expected error for unsigned PDF")
+		}
+	})
+
+	// ---- 31n. Signature defaults ----
+	t.Run("ConfigDefaults", func(t *testing.T) {
+		cert, _ := allFeaturesTestCert(t)
+		cfg := SignatureConfig{
+			Certificate: cert,
+		}
+		cfg.defaults()
+
+		if cfg.SignatureFieldName != "Signature1" {
+			t.Errorf("default field name = %q, want %q", cfg.SignatureFieldName, "Signature1")
+		}
+		if cfg.Name != "AllFeatures Test Signer" {
+			t.Errorf("default name = %q, want %q", cfg.Name, "AllFeatures Test Signer")
+		}
+		if cfg.PageNo != 1 {
+			t.Errorf("default page = %d, want 1", cfg.PageNo)
+		}
+		if cfg.SignTime.IsZero() {
+			t.Error("default sign time should not be zero")
+		}
+	})
+
+	// ---- 31o. Signed PDF with rich content ----
+	t.Run("SignedWithRichContent", func(t *testing.T) {
+		cert, key := allFeaturesTestCert(t)
+		pdf := newPDFWithFont(t)
+
+		// Page 1: text + drawing
+		pdf.AddPage()
+		pdf.SetXY(50, 50)
+		pdf.Cell(nil, "Rich Content — Page 1")
+		pdf.SetStrokeColor(0, 0, 255)
+		pdf.SetLineWidth(2)
+		pdf.Line(50, 80, 300, 80)
+		pdf.Oval(100, 100, 250, 200)
+
+		// Page 2: image + text
+		pdf.AddPage()
+		pdf.SetXY(50, 50)
+		pdf.Cell(nil, "Rich Content — Page 2")
+		if err := pdf.Image(resJPEGPath, 50, 100, &Rect{W: 150, H: 150}); err != nil {
+			t.Logf("image not available: %v", err)
+		}
+
+		// Page 3: HTML
+		pdf.AddPage()
+		pdf.InsertHTMLBox(50, 50, 495, 700, "<h2>Signed HTML</h2><p>This document is digitally signed.</p>", HTMLBoxOption{
+			DefaultFontFamily: fontFamily,
+			DefaultFontSize:   12,
+		})
+
+		var buf bytes.Buffer
+		err := pdf.SignPDF(SignatureConfig{
+			Certificate: cert,
+			PrivateKey:  key,
+			Reason:      "Rich Content Approval",
+			Location:    "Guangzhou",
+			Visible:     true,
+			X:           350,
+			Y:           750,
+			W:           200,
+			H:           40,
+			PageNo:      1,
+		}, &buf)
+		if err != nil {
+			t.Fatalf("SignPDF rich: %v", err)
+		}
+
+		results, err := VerifySignature(buf.Bytes())
+		if err != nil {
+			t.Fatalf("VerifySignature: %v", err)
+		}
+		if !results[0].Valid {
+			t.Fatalf("rich content signature invalid: %v", results[0].Error)
+		}
+		os.WriteFile(resOutDir+"/all_sig_rich_content.pdf", buf.Bytes(), 0644)
+	})
 }
