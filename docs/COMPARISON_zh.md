@@ -291,3 +291,103 @@
 | 修改表单值 | ✅ `ModifyFormFieldValue()` | ❌ | ✅ Widget 类 |
 | 表单 PDF 检测 | ✅ `IsFormPDF()` | ❌ | ✅ `is_form_pdf` |
 | 固化注释/表单 | ✅ `BakeAnnotations()` | ❌ | ✅ `bake()` |
+
+### 19. 其他功能
+
+| 功能 | GoPDF2 | GoPDF | PyMuPDF |
+|------|--------|-------|---------|
+| HTML 渲染 | ✅ `InsertHTMLBox()` | ❌ | ✅ Story 类 |
+| 表格布局 | ✅ `NewTableLayout()` | ✅ `NewTableLayout()` | ❌（需手动实现） |
+| 页眉/页脚回调 | ✅ `AddHeader()` / `AddFooter()` | ✅ `AddHeader()` / `AddFooter()` | ❌（需手动实现） |
+| 占位文本 | ✅ `PlaceHolderText()` | ✅ `PlaceHolderText()` | ❌ |
+| 纸张尺寸查询 | ✅ `PaperSize()` | ❌ | ✅ `paper_size()` |
+| 几何工具 | ✅ `RectFrom` / `Matrix` | ❌ | ✅ `Rect` / `Matrix` |
+| 链接 | ✅ `AddExternalLink()` | ✅ `AddExternalLink()` | ✅ `insert_link()` |
+| 锚点 | ✅ `SetAnchor()` | ✅ `SetAnchor()` | ✅ |
+| 字体容器复用 | ✅ `FontContainer` | ✅ `FontContainer` | ❌ |
+| 压缩级别控制 | ✅ `SetCompressLevel()` | ✅ `SetCompressLevel()` | ✅ `save(deflate=True)` |
+| Trim-box | ✅ | ❌ | ✅ |
+| 阿拉伯文支持 | ✅ | ✅ | ✅ |
+| CMYK 颜色 | ✅ | ✅ | ✅ |
+| 裁剪多边形 | ✅ | ✅ | ✅ |
+
+---
+
+## GoPDF2 独有优势（相对于 GoPDF 和 PyMuPDF）
+
+1. **打开/修改已有 PDF** — 完整的读写访问已有 PDF，不仅仅是导入页面
+2. **内容元素 CRUD** — 可直接操作页面上的单个内容元素（文本、图片、线条等），GoPDF 和 PyMuPDF 均无法做到
+3. **开箱即用的水印 API** — 文字/图片水印、平铺、全页面，一行代码搞定
+4. **文本/图片提取** — 纯 Go 内容流解析器，可提取文本和图片
+5. **注释** — 完整的注释支持（20+ 种类型），支持创建/读取/修改/删除
+6. **表单字段 (AcroForm)** — 创建和操作表单字段（文本、复选框、下拉框、签名）
+7. **数字签名** — PKCS#7 签名与验证
+8. **文档克隆** — 一行代码深拷贝
+9. **增量保存** — 无需重写整个文件即可保存更改
+10. **PDF 底层操作** — 直接访问 PDF 对象、字典、流
+11. **日志/撤销** — 完整的撤销/重做，支持命名操作
+12. **文档优化** — 清洗、垃圾回收、线性化、内容流清理
+13. **嵌入文件** — 完整的嵌入文件附件 CRUD
+14. **OCG/图层** — 可选内容组与图层管理
+15. **HTML 渲染** — 内置 HTML 解析器用于 PDF 生成
+16. **文档统计** — 一行代码获取文档结构概览
+
+## GoPDF 优势
+
+1. **纯 Go 实现** — 无 CGO 依赖，编译简单，交叉编译友好
+2. **轻量级 PDF 生成** — 专注、简洁的 API 用于创建 PDF
+3. **表格布局** — 内置表格生成器
+4. **页眉/页脚回调** — 自动在每页执行
+5. **字体容器复用** — 多文档共享字体解析结果
+6. **密码保护** — RC4 加密支持
+7. **导入 PDF 页面** — 通过 gofpdi 集成
+8. **阿拉伯文支持** — 内置阿拉伯文字形处理
+
+## PyMuPDF 独有优势
+
+1. **高保真页面渲染** — 通过 MuPDF 引擎实现高质量 PDF 渲染
+2. **OCR** — 结合 Tesseract 进行文字识别
+3. **多格式支持** — 可打开 XPS、EPUB、HTML、SVG、图片等格式
+4. **涂改注释** — 安全地永久删除敏感内容
+
+---
+
+## 适用场景建议
+
+| 场景 | 推荐 |
+|------|------|
+| Go 项目中生成 PDF 报告 | GoPDF2 或 GoPDF |
+| 简单 PDF 生成（文本、图片、表格） | GoPDF（轻量）或 GoPDF2 |
+| 在已有 PDF 上叠加内容 | GoPDF2 |
+| 需要精细操作页面元素 | GoPDF2 |
+| 批量添加水印 | GoPDF2 |
+| 容器化/无 C 编译器环境 | GoPDF2 或 GoPDF |
+| 从 PDF 提取文本/图片 | GoPDF2（基础）/ PyMuPDF（高级） |
+| PDF 转图片 | PyMuPDF |
+| OCR 文字识别 | PyMuPDF |
+| 表单填写与处理 | GoPDF2 |
+| 多格式文档转换 | PyMuPDF |
+| 需要底层 PDF 对象操作 | GoPDF2 或 PyMuPDF |
+| 涂改/安全删除敏感内容 | GoPDF2（基础）/ PyMuPDF（高级） |
+| 数字签名 | GoPDF2 |
+| 合并/拆分 PDF | GoPDF2 |
+
+---
+
+## 未来可扩展方向
+
+以下功能在纯 Go 中理论上可实现，但复杂度较高：
+
+| 功能 | 难度 | 说明 |
+|------|------|------|
+| ~~更多注释类型~~ | ~~中~~ | ✅ 已实现 — 墨迹、折线、多边形、线条、图章、波浪线、插入符、文件附件、涂改等 |
+| MarkInfo | 低 | ✅ 已实现 — `SetMarkInfo()`、`GetMarkInfo()` |
+| 嵌入文件读取/删除 | ~~中~~ | ✅ 已实现 — `GetEmbeddedFile()`、`DeleteEmbeddedFile()`、`UpdateEmbeddedFile()`、`GetEmbeddedFileInfo()`、`GetEmbeddedFileNames()`、`GetEmbeddedFileCount()` |
+| ~~表单字段 (AcroForm)~~ | ~~高~~ | ✅ 已实现 — `AddFormField()`、`AddTextField()`、`AddCheckbox()`、`AddDropdown()` |
+| ~~文本提取~~ | ~~极高~~ | ✅ 已实现 — `ExtractTextFromPage()`、`ExtractPageText()` |
+| ~~图片提取~~ | ~~极高~~ | ✅ 已实现 — `ExtractImagesFromPage()`、`ExtractImagesFromAllPages()` |
+| ~~数字签名~~ | ~~高~~ | ✅ 已实现 — `SignPDF()`、`VerifySignature()` |
+| 页面渲染 | 不可行 | ✅ 基础渲染已实现 — `RenderPageToImage()`（轻量级；高保真渲染需要 MuPDF） |
+| OCR | 不可行 | 需要 Tesseract 或类似引擎 |
+| 日志/撤销 | 高 | ✅ 已实现 — `JournalEnable()`、`JournalUndo()`、`JournalRedo()`、`JournalSave()`、`JournalLoad()` |
+| 线性化 | 高 | ✅ 已实现 — `Linearize()`（简化版 Web 优化） |
