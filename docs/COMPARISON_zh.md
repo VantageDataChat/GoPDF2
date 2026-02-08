@@ -42,7 +42,7 @@
 | 增量保存 | ✅ `IncrementalSave()` | ✅ `saveIncr()` |
 | 文档克隆 | ✅ `Clone()` | ❌（需手动序列化） |
 | 关闭文档 | 自动 GC | `close()` |
-| 打开加密 PDF | ❌ | ✅ `authenticate()` |
+| 打开加密 PDF | ✅ `OpenPDF(Password)` | ✅ `authenticate()` |
 | 多格式支持 (XPS/EPUB/HTML) | ❌ | ✅ |
 
 ### 2. 页面管理
@@ -79,10 +79,10 @@
 | 字体子集化 | ✅ 自动 | ✅ `subset_fonts()` |
 | 字距调整 (Kerning) | ✅ | ✅ |
 | 文本提取 | ✅ `ExtractPageText()` | ✅ `get_text()` |
-| 文本搜索 | ❌ | ✅ `search_for()` |
+| 文本搜索 | ✅ `SearchText()` | ✅ `search_for()` |
 | 文本块/字典提取 | ✅ `ExtractTextFromPage()` | ✅ `get_text("dict")` |
 | 字体信息查询 | ✅ `GetFonts()` | ✅ `get_page_fonts()` |
-| 字体提取 | ❌ | ✅ `extract_font()` |
+| 字体提取 | ✅ `ExtractFontsFromPage()` | ✅ `extract_font()` |
 | CJK 字体支持 | ✅ | ✅ |
 
 ### 4. 绘图
@@ -123,26 +123,26 @@
 
 | 功能 | GoPDF2 | PyMuPDF |
 |------|--------|---------|
-| 文本注释（便签） | ✅ | ✅ `add_text_annot()` |
-| 高亮 | ✅ | ✅ `add_highlight_annot()` |
+| 文本注释（便签） | ✅ `AddTextAnnotation()` | ✅ `add_text_annot()` |
+| 高亮 | ✅ `AddHighlightAnnotation()` | ✅ `add_highlight_annot()` |
 | 下划线 | ✅ | ✅ `add_underline_annot()` |
 | 删除线 | ✅ | ✅ `add_strikeout_annot()` |
 | 矩形注释 | ✅ | ✅ `add_rect_annot()` |
 | 圆形注释 | ✅ | ✅ `add_circle_annot()` |
-| 自由文本 | ✅ | ✅ `add_freetext_annot()` |
-| 墨迹注释 | ❌ | ✅ `add_ink_annot()` |
-| 折线注释 | ❌ | ✅ `add_polyline_annot()` |
-| 多边形注释 | ❌ | ✅ `add_polygon_annot()` |
-| 线条注释 | ❌ | ✅ `add_line_annot()` |
-| 图章注释 | ❌ | ✅ `add_stamp_annot()` |
-| 波浪线注释 | ❌ | ✅ `add_squiggly_annot()` |
-| 插入符注释 | ❌ | ✅ `add_caret_annot()` |
-| 文件附件注释 | ❌ | ✅ `add_file_annot()` |
-| 涂改注释 (Redaction) | ❌ | ✅ `add_redact_annot()` |
-| 删除注释 | ❌ | ✅ `delete_annot()` |
-| 修改注释属性 | ❌ | ✅ Annot 类方法 |
-| 注释遍历 | ❌ | ✅ `annots()` |
-| 应用涂改 | ❌ | ✅ `apply_redactions()` |
+| 自由文本 | ✅ `AddFreeTextAnnotation()` | ✅ `add_freetext_annot()` |
+| 墨迹注释 | ✅ `AddInkAnnotation()` | ✅ `add_ink_annot()` |
+| 折线注释 | ✅ `AddPolylineAnnotation()` | ✅ `add_polyline_annot()` |
+| 多边形注释 | ✅ `AddPolygonAnnotation()` | ✅ `add_polygon_annot()` |
+| 线条注释 | ✅ `AddLineAnnotation()` | ✅ `add_line_annot()` |
+| 图章注释 | ✅ `AddStampAnnotation()` | ✅ `add_stamp_annot()` |
+| 波浪线注释 | ✅ `AddSquigglyAnnotation()` | ✅ `add_squiggly_annot()` |
+| 插入符注释 | ✅ `AddCaretAnnotation()` | ✅ `add_caret_annot()` |
+| 文件附件注释 | ✅ `AddFileAttachmentAnnotation()` | ✅ `add_file_annot()` |
+| 涂改注释 (Redaction) | ✅ `AddRedactAnnotation()` | ✅ `add_redact_annot()` |
+| 删除注释 | ✅ `DeleteAnnotation()` | ✅ `delete_annot()` |
+| 修改注释属性 | ✅ `ModifyAnnotation()` | ✅ Annot 类方法 |
+| 注释遍历 | ✅ `GetAnnotations()` | ✅ `annots()` |
+| 应用涂改 | ✅ `ApplyRedactions()` | ✅ `apply_redactions()` |
 
 ### 7. 水印
 
@@ -164,10 +164,10 @@
 | 设置目录 | ✅ `SetTOC()` | ✅ `set_toc()` |
 | 层级化目录 | ✅ | ✅ |
 | 添加单个书签 | ✅ `AddOutline()` | ✅ |
-| 修改单个书签 | ❌ | ✅ `set_toc_item()` |
-| 删除单个书签 | ❌ | ✅ `del_toc_item()` |
-| 书签颜色/粗体/斜体 | ❌ | ✅ |
-| 书签折叠控制 | ❌ | ✅ `collapse` 参数 |
+| 修改单个书签 | ✅ `ModifyBookmark()` | ✅ `set_toc_item()` |
+| 删除单个书签 | ✅ `DeleteBookmark()` | ✅ `del_toc_item()` |
+| 书签颜色/粗体/斜体 | ✅ `SetBookmarkStyle()` | ✅ |
+| 书签折叠控制 | ✅ `SetBookmarkStyle()` | ✅ `collapse` 参数 |
 
 ### 9. 元数据
 
@@ -184,12 +184,12 @@
 | 功能 | GoPDF2 | PyMuPDF |
 |------|--------|---------|
 | 添加嵌入文件 | ✅ `AddEmbeddedFile()` | ✅ `embfile_add()` |
-| 获取嵌入文件 | ❌ | ✅ `embfile_get()` |
-| 删除嵌入文件 | ❌ | ✅ `embfile_del()` |
-| 更新嵌入文件 | ❌ | ✅ `embfile_upd()` |
-| 嵌入文件信息 | ❌ | ✅ `embfile_info()` |
-| 嵌入文件列表 | ❌ | ✅ `embfile_names()` |
-| 嵌入文件数量 | ❌ | ✅ `embfile_count()` |
+| 获取嵌入文件 | ✅ `GetEmbeddedFile()` | ✅ `embfile_get()` |
+| 删除嵌入文件 | ✅ `DeleteEmbeddedFile()` | ✅ `embfile_del()` |
+| 更新嵌入文件 | ✅ `UpdateEmbeddedFile()` | ✅ `embfile_upd()` |
+| 嵌入文件信息 | ✅ `GetEmbeddedFileInfo()` | ✅ `embfile_info()` |
+| 嵌入文件列表 | ✅ `GetEmbeddedFileNames()` | ✅ `embfile_names()` |
+| 嵌入文件数量 | ✅ `GetEmbeddedFileCount()` | ✅ `embfile_count()` |
 
 ### 11. 可选内容组 (OCG/图层)
 
@@ -197,11 +197,11 @@
 |------|--------|---------|
 | 添加 OCG | ✅ `AddOCG()` | ✅ `add_ocg()` |
 | 获取所有 OCG | ✅ `GetOCGs()` | ✅ `get_ocgs()` |
-| 图层配置 | ❌ | ✅ `add_layer()` / `get_layers()` |
-| 切换图层 | ❌ | ✅ `switch_layer()` |
-| OCMD（成员字典） | ❌ | ✅ `set_ocmd()` / `get_ocmd()` |
-| 图层 UI 配置 | ❌ | ✅ `layer_ui_configs()` |
-| 批量设置 OCG 状态 | ❌ | ✅ `set_layer()` |
+| 图层配置 | ✅ `AddLayerConfig()` / `GetLayerConfigs()` | ✅ `add_layer()` / `get_layers()` |
+| 切换图层 | ✅ `SwitchLayer()` | ✅ `switch_layer()` |
+| OCMD（成员字典） | ✅ `AddOCMD()` / `GetOCMD()` | ✅ `set_ocmd()` / `get_ocmd()` |
+| 图层 UI 配置 | ✅ `SetLayerUIConfig()` | ✅ `layer_ui_configs()` |
+| 批量设置 OCG 状态 | ✅ `SetOCGStates()` | ✅ `set_layer()` |
 
 ### 12. 页面布局与显示
 
@@ -209,10 +209,10 @@
 |------|--------|---------|
 | 页面布局 | ✅ `SetPageLayout()` | ✅ `set_pagelayout()` |
 | 页面模式 | ✅ `SetPageMode()` | ✅ `set_pagemode()` |
-| MarkInfo | ❌ | ✅ `set_markinfo()` |
+| MarkInfo | ✅ `SetMarkInfo()` | ✅ `set_markinfo()` |
 | 页面标签 | ✅ `SetPageLabels()` | ✅ `set_page_labels()` |
 | 获取页面标签 | ✅ `GetPageLabels()` | ✅ `get_page_labels()` |
-| 按标签查找页面 | ❌ | ✅ `get_page_numbers()` |
+| 按标签查找页面 | ✅ `FindPagesByLabel()` | ✅ `get_page_numbers()` |
 
 ### 13. 安全与加密
 
@@ -220,8 +220,8 @@
 |------|--------|---------|
 | 密码保护 | ✅ `PDFProtectionConfig` | ✅ `save(encryption=...)` |
 | 权限控制 | ✅ | ✅ |
-| 打开加密 PDF | ❌ | ✅ `authenticate()` |
-| 加密方法选择 | 有限 | ✅ 多种加密标准 |
+| 打开加密 PDF | ✅ `OpenPDF(Password)` | ✅ `authenticate()` |
+| 加密方法选择 | ✅ RC4 (V1/V2) | ✅ 多种加密标准 |
 | 数字签名 | ✅ `SignPDF()` / `VerifySignature()` | ✅ `get_sigflags()` |
 
 ### 14. 文档清洗与优化
@@ -232,10 +232,10 @@
 | 垃圾回收 | ✅ `GarbageCollect()` | ✅ `save(garbage=N)` |
 | 对象去重 | ✅ `GCDedup` | ✅ `save(garbage=3)` |
 | 文档统计 | ✅ `GetDocumentStats()` | 需手动统计 |
-| 线性化 (Web 优化) | ❌ | ✅ `save(linear=True)` |
-| 内容流清理 | ❌ | ✅ `save(clean=True)` |
+| 线性化 (Web 优化) | ✅ `Linearize()` | ✅ `save(linear=True)` |
+| 内容流清理 | ✅ `CleanContentStreams()` | ✅ `save(clean=True)` |
 | 图片重压缩 | ✅ `RecompressImages()` | ✅ `rewrite_images()` |
-| 颜色空间转换 | ❌ | ✅ `recolor()` |
+| 颜色空间转换 | ✅ `ConvertColorspace()` | ✅ `recolor()` |
 
 ### 15. 内容元素操作
 
@@ -260,22 +260,22 @@
 | PDF 版本控制 | ✅ `SetPDFVersion()` | 通过 header 控制 |
 | 类型化对象 ID | ✅ `ObjID` | ✅ xref 系统 |
 | 对象数量统计 | ✅ `GetObjectCount()` | ✅ `xref_length()` |
-| 读取对象定义 | ❌ | ✅ `xref_object()` |
-| 修改对象定义 | ❌ | ✅ `update_object()` |
-| 读取/写入字典键 | ❌ | ✅ `xref_get_key()` / `xref_set_key()` |
-| 读取/写入流数据 | ❌ | ✅ `xref_stream()` / `update_stream()` |
-| 复制对象 | ❌ | ✅ `xref_copy()` |
-| PDF Catalog 访问 | ❌ | ✅ `pdf_catalog()` |
-| PDF Trailer 访问 | ❌ | ✅ `pdf_trailer()` |
+| 读取对象定义 | ✅ `ReadObject()` | ✅ `xref_object()` |
+| 修改对象定义 | ✅ `UpdateObject()` | ✅ `update_object()` |
+| 读取/写入字典键 | ✅ `GetDictKey()` / `SetDictKey()` | ✅ `xref_get_key()` / `xref_set_key()` |
+| 读取/写入流数据 | ✅ `GetStream()` / `SetStream()` | ✅ `xref_stream()` / `update_stream()` |
+| 复制对象 | ✅ `CopyObject()` | ✅ `xref_copy()` |
+| PDF Catalog 访问 | ✅ `GetCatalog()` | ✅ `pdf_catalog()` |
+| PDF Trailer 访问 | ✅ `GetTrailer()` | ✅ `pdf_trailer()` |
 
 ### 17. 日志/撤销 (Journalling)
 
 | 功能 | GoPDF2 | PyMuPDF |
 |------|--------|---------|
-| 启用日志 | ❌ | ✅ `journal_enable()` |
-| 撤销/重做 | ❌ | ✅ `journal_undo()` / `journal_redo()` |
-| 保存/加载日志 | ❌ | ✅ `journal_save()` / `journal_load()` |
-| 操作命名 | ❌ | ✅ `journal_start_op()` |
+| 启用日志 | ✅ `JournalEnable()` | ✅ `journal_enable()` |
+| 撤销/重做 | ✅ `JournalUndo()` / `JournalRedo()` | ✅ `journal_undo()` / `journal_redo()` |
+| 保存/加载日志 | ✅ `JournalSave()` / `JournalLoad()` | ✅ `journal_save()` / `journal_load()` |
+| 操作命名 | ✅ `JournalStartOp()` | ✅ `journal_start_op()` |
 
 ### 18. 表单字段 (Widgets/AcroForm)
 
@@ -287,10 +287,10 @@
 | 添加下拉框 | ✅ `AddDropdown()` | ✅ `add_widget()` |
 | 添加签名字段 | ✅ `AddSignatureField()` | ✅ `add_widget()` |
 | 获取表单字段 | ✅ `GetFormFields()` | ✅ Widget 类 |
-| 删除表单字段 | ❌ | ✅ `delete_widget()` |
-| 修改表单值 | ❌ | ✅ Widget 类 |
-| 表单 PDF 检测 | ❌ | ✅ `is_form_pdf` |
-| 固化注释/表单 | ❌ | ✅ `bake()` |
+| 删除表单字段 | ✅ `DeleteFormField()` | ✅ `delete_widget()` |
+| 修改表单值 | ✅ `ModifyFormFieldValue()` | ✅ Widget 类 |
+| 表单 PDF 检测 | ✅ `IsFormPDF()` | ✅ `is_form_pdf` |
+| 固化注释/表单 | ✅ `BakeAnnotations()` | ✅ `bake()` |
 
 ### 19. 其他功能
 
@@ -325,14 +325,9 @@
 ## PyMuPDF 独有优势
 
 1. **高保真页面渲染** — 通过 MuPDF 引擎实现高质量 PDF 渲染
-2. **文本搜索** — 在页面中搜索文本并返回位置
-3. **OCR** — 结合 Tesseract 进行文字识别
-4. **多格式支持** — 可打开 XPS、EPUB、HTML、SVG、图片等格式
-5. **日志/撤销** — 操作可撤销/重做
-6. **涂改注释** — 安全地永久删除敏感内容
-7. **PDF 底层操作** — 直接读写 PDF 对象、字典键、流数据
-8. **线性化** — 生成 Web 优化的 PDF
-9. **更多注释类型** — 墨迹、折线、多边形、图章、波浪线、插入符、文件附件、涂改等
+2. **OCR** — 结合 Tesseract 进行文字识别
+3. **多格式支持** — 可打开 XPS、EPUB、HTML、SVG、图片等格式
+4. **涂改注释** — 安全地永久删除敏感内容
 
 ---
 
@@ -351,7 +346,7 @@
 | 表单填写与处理 | GoPDF2（创建）/ PyMuPDF（完整读写） |
 | 多格式文档转换 | PyMuPDF |
 | 需要底层 PDF 对象操作 | PyMuPDF |
-| 涂改/安全删除敏感内容 | PyMuPDF |
+| 涂改/安全删除敏感内容 | GoPDF2（基础）/ PyMuPDF（高级） |
 
 ---
 
@@ -361,14 +356,14 @@
 
 | 功能 | 难度 | 说明 |
 |------|------|------|
-| 更多注释类型 | 中 | 墨迹、折线、多边形、图章等 |
-| MarkInfo | 低 | 简单的字典写入 |
-| 嵌入文件读取/删除 | 中 | 需要解析 Names 字典 |
+| ~~更多注释类型~~ | ~~中~~ | ✅ 已实现 — 墨迹、折线、多边形、线条、图章、波浪线、插入符、文件附件、涂改等 |
+| MarkInfo | 低 | ✅ 已实现 — `SetMarkInfo()`、`GetMarkInfo()` |
+| 嵌入文件读取/删除 | ~~中~~ | ✅ 已实现 — `GetEmbeddedFile()`、`DeleteEmbeddedFile()`、`UpdateEmbeddedFile()`、`GetEmbeddedFileInfo()`、`GetEmbeddedFileNames()`、`GetEmbeddedFileCount()` |
 | ~~表单字段 (AcroForm)~~ | ~~高~~ | ✅ 已实现 — `AddFormField()`、`AddTextField()`、`AddCheckbox()`、`AddDropdown()` |
 | ~~文本提取~~ | ~~极高~~ | ✅ 已实现 — `ExtractTextFromPage()`、`ExtractPageText()` |
 | ~~图片提取~~ | ~~极高~~ | ✅ 已实现 — `ExtractImagesFromPage()`、`ExtractImagesFromAllPages()` |
 | ~~数字签名~~ | ~~高~~ | ✅ 已实现 — `SignPDF()`、`VerifySignature()` |
 | 页面渲染 | 不可行 | ✅ 基础渲染已实现 — `RenderPageToImage()`（轻量级；高保真渲染需要 MuPDF） |
 | OCR | 不可行 | 需要 Tesseract 或类似引擎 |
-| 日志/撤销 | 高 | 需要实现操作记录与回放 |
-| 线性化 | 高 | 需要重新组织 PDF 文件结构 |
+| 日志/撤销 | 高 | ✅ 已实现 — `JournalEnable()`、`JournalUndo()`、`JournalRedo()`、`JournalSave()`、`JournalLoad()` |
+| 线性化 | 高 | ✅ 已实现 — `Linearize()`（简化版 Web 优化） |

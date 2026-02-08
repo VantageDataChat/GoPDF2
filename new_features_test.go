@@ -511,3 +511,287 @@ func TestCopyPageOutOfRange(t *testing.T) {
 		t.Fatalf("expected ErrPageOutOfRange, got: %v", err)
 	}
 }
+
+// ============================================================
+// New Annotation Type Tests
+// ============================================================
+
+func TestAnnotationInk(t *testing.T) {
+	ensureOutDir(t)
+	pdf := newPDFWithFont(t)
+	pdf.AddPage()
+	pdf.SetXY(50, 50)
+	pdf.Cell(nil, "Ink annotation test")
+
+	strokes := [][]Point{
+		{{X: 100, Y: 100}, {X: 120, Y: 110}, {X: 140, Y: 100}, {X: 160, Y: 120}},
+		{{X: 100, Y: 130}, {X: 150, Y: 140}, {X: 200, Y: 130}},
+	}
+	pdf.AddInkAnnotation(90, 90, 120, 60, strokes, [3]uint8{0, 0, 255})
+
+	if err := pdf.WritePdf(resOutDir + "/annot_ink.pdf"); err != nil {
+		t.Fatalf("WritePdf: %v", err)
+	}
+}
+
+func TestAnnotationPolyline(t *testing.T) {
+	ensureOutDir(t)
+	pdf := newPDFWithFont(t)
+	pdf.AddPage()
+	pdf.SetXY(50, 50)
+	pdf.Cell(nil, "Polyline annotation test")
+
+	vertices := []Point{
+		{X: 100, Y: 200}, {X: 150, Y: 180}, {X: 200, Y: 220}, {X: 250, Y: 190},
+	}
+	pdf.AddPolylineAnnotation(90, 170, 170, 60, vertices, [3]uint8{255, 0, 0})
+
+	if err := pdf.WritePdf(resOutDir + "/annot_polyline.pdf"); err != nil {
+		t.Fatalf("WritePdf: %v", err)
+	}
+}
+
+func TestAnnotationPolygon(t *testing.T) {
+	ensureOutDir(t)
+	pdf := newPDFWithFont(t)
+	pdf.AddPage()
+	pdf.SetXY(50, 50)
+	pdf.Cell(nil, "Polygon annotation test")
+
+	vertices := []Point{
+		{X: 100, Y: 300}, {X: 150, Y: 260}, {X: 200, Y: 300}, {X: 175, Y: 340}, {X: 125, Y: 340},
+	}
+	fill := [3]uint8{200, 200, 255}
+	pdf.AddAnnotation(AnnotationOption{
+		Type:          AnnotPolygon,
+		X:             90,
+		Y:             250,
+		W:             120,
+		H:             100,
+		Vertices:      vertices,
+		Color:         [3]uint8{0, 0, 255},
+		InteriorColor: &fill,
+	})
+
+	if err := pdf.WritePdf(resOutDir + "/annot_polygon.pdf"); err != nil {
+		t.Fatalf("WritePdf: %v", err)
+	}
+}
+
+func TestAnnotationLine(t *testing.T) {
+	ensureOutDir(t)
+	pdf := newPDFWithFont(t)
+	pdf.AddPage()
+	pdf.SetXY(50, 50)
+	pdf.Cell(nil, "Line annotation test")
+
+	pdf.AddLineAnnotation(
+		Point{X: 100, Y: 150},
+		Point{X: 300, Y: 200},
+		[3]uint8{255, 0, 0},
+	)
+
+	// Line with arrow endings.
+	pdf.AddAnnotation(AnnotationOption{
+		Type:      AnnotLine,
+		X:         100,
+		Y:         250,
+		W:         200,
+		H:         50,
+		LineStart: Point{X: 100, Y: 250},
+		LineEnd:   Point{X: 300, Y: 300},
+		Color:     [3]uint8{0, 128, 0},
+		LineEndingStyles: [2]LineEndingStyle{LineEndNone, LineEndClosedArrow},
+	})
+
+	if err := pdf.WritePdf(resOutDir + "/annot_line.pdf"); err != nil {
+		t.Fatalf("WritePdf: %v", err)
+	}
+}
+
+func TestAnnotationStamp(t *testing.T) {
+	ensureOutDir(t)
+	pdf := newPDFWithFont(t)
+	pdf.AddPage()
+	pdf.SetXY(50, 50)
+	pdf.Cell(nil, "Stamp annotation test")
+
+	pdf.AddStampAnnotation(100, 100, 200, 60, StampApproved)
+	pdf.AddStampAnnotation(100, 200, 200, 60, StampDraft)
+	pdf.AddStampAnnotation(100, 300, 200, 60, StampConfidential)
+
+	if err := pdf.WritePdf(resOutDir + "/annot_stamp.pdf"); err != nil {
+		t.Fatalf("WritePdf: %v", err)
+	}
+}
+
+func TestAnnotationSquiggly(t *testing.T) {
+	ensureOutDir(t)
+	pdf := newPDFWithFont(t)
+	pdf.AddPage()
+	pdf.SetXY(50, 50)
+	pdf.Cell(nil, "Squiggly underline annotation test")
+
+	pdf.AddSquigglyAnnotation(45, 45, 300, 20, [3]uint8{255, 0, 0})
+
+	if err := pdf.WritePdf(resOutDir + "/annot_squiggly.pdf"); err != nil {
+		t.Fatalf("WritePdf: %v", err)
+	}
+}
+
+func TestAnnotationCaret(t *testing.T) {
+	ensureOutDir(t)
+	pdf := newPDFWithFont(t)
+	pdf.AddPage()
+	pdf.SetXY(50, 50)
+	pdf.Cell(nil, "Caret annotation test")
+
+	pdf.AddCaretAnnotation(200, 48, 10, 20, "Insert text here")
+
+	if err := pdf.WritePdf(resOutDir + "/annot_caret.pdf"); err != nil {
+		t.Fatalf("WritePdf: %v", err)
+	}
+}
+
+func TestAnnotationFileAttachment(t *testing.T) {
+	ensureOutDir(t)
+	pdf := newPDFWithFont(t)
+	pdf.AddPage()
+	pdf.SetXY(50, 50)
+	pdf.Cell(nil, "File attachment annotation test")
+
+	pdf.AddFileAttachmentAnnotation(100, 100, "readme.txt", []byte("Hello, World!"), "Attached file")
+
+	if err := pdf.WritePdf(resOutDir + "/annot_file_attach.pdf"); err != nil {
+		t.Fatalf("WritePdf: %v", err)
+	}
+}
+
+func TestAnnotationRedact(t *testing.T) {
+	ensureOutDir(t)
+	pdf := newPDFWithFont(t)
+	pdf.AddPage()
+	pdf.SetXY(50, 50)
+	pdf.Cell(nil, "Redaction annotation test - SENSITIVE DATA HERE")
+
+	pdf.AddRedactAnnotation(250, 45, 200, 20, "REDACTED")
+
+	if err := pdf.WritePdf(resOutDir + "/annot_redact.pdf"); err != nil {
+		t.Fatalf("WritePdf: %v", err)
+	}
+}
+
+func TestAnnotationGetAndDelete(t *testing.T) {
+	pdf := newPDFWithFont(t)
+	pdf.AddPage()
+
+	pdf.AddTextAnnotation(50, 50, "Author", "Note 1")
+	pdf.AddHighlightAnnotation(50, 100, 200, 20, [3]uint8{255, 255, 0})
+	pdf.AddStampAnnotation(50, 150, 100, 50, StampDraft)
+
+	annots := pdf.GetAnnotations()
+	if len(annots) != 3 {
+		t.Fatalf("expected 3 annotations, got %d", len(annots))
+	}
+	if annots[0].Type != AnnotText {
+		t.Fatalf("expected AnnotText, got %d", annots[0].Type)
+	}
+	if annots[1].Type != AnnotHighlight {
+		t.Fatalf("expected AnnotHighlight, got %d", annots[1].Type)
+	}
+	if annots[2].Type != AnnotStamp {
+		t.Fatalf("expected AnnotStamp, got %d", annots[2].Type)
+	}
+
+	// Delete the middle annotation.
+	ok := pdf.DeleteAnnotation(1)
+	if !ok {
+		t.Fatal("DeleteAnnotation returned false")
+	}
+
+	annots = pdf.GetAnnotations()
+	if len(annots) != 2 {
+		t.Fatalf("expected 2 annotations after delete, got %d", len(annots))
+	}
+	if annots[0].Type != AnnotText || annots[1].Type != AnnotStamp {
+		t.Fatal("unexpected annotation types after delete")
+	}
+}
+
+func TestAnnotationApplyRedactions(t *testing.T) {
+	pdf := newPDFWithFont(t)
+	pdf.AddPage()
+
+	pdf.AddTextAnnotation(50, 50, "Author", "Keep this")
+	pdf.AddRedactAnnotation(50, 100, 200, 20, "REDACTED")
+	pdf.AddRedactAnnotation(50, 150, 200, 20, "ALSO REDACTED")
+	pdf.AddHighlightAnnotation(50, 200, 200, 20, [3]uint8{255, 255, 0})
+
+	annots := pdf.GetAnnotations()
+	if len(annots) != 4 {
+		t.Fatalf("expected 4 annotations, got %d", len(annots))
+	}
+
+	removed := pdf.ApplyRedactions()
+	if removed != 2 {
+		t.Fatalf("expected 2 redactions removed, got %d", removed)
+	}
+
+	annots = pdf.GetAnnotations()
+	if len(annots) != 2 {
+		t.Fatalf("expected 2 annotations after redaction, got %d", len(annots))
+	}
+	if annots[0].Type != AnnotText || annots[1].Type != AnnotHighlight {
+		t.Fatal("unexpected annotation types after redaction")
+	}
+}
+
+func TestAnnotationAllNewTypes(t *testing.T) {
+	ensureOutDir(t)
+	pdf := newPDFWithFont(t)
+	pdf.AddPage()
+	pdf.SetXY(50, 30)
+	pdf.Cell(nil, "All new annotation types")
+
+	// Ink
+	pdf.AddInkAnnotation(50, 60, 100, 40,
+		[][]Point{{{X: 60, Y: 70}, {X: 80, Y: 80}, {X: 100, Y: 70}, {X: 120, Y: 90}}},
+		[3]uint8{0, 0, 200})
+
+	// Polyline
+	pdf.AddPolylineAnnotation(50, 120, 200, 40,
+		[]Point{{X: 60, Y: 130}, {X: 100, Y: 120}, {X: 140, Y: 150}, {X: 200, Y: 130}},
+		[3]uint8{200, 0, 0})
+
+	// Polygon
+	fill := [3]uint8{220, 220, 255}
+	pdf.AddAnnotation(AnnotationOption{
+		Type:          AnnotPolygon,
+		X:             50, Y: 180, W: 150, H: 80,
+		Vertices:      []Point{{X: 60, Y: 190}, {X: 125, Y: 180}, {X: 190, Y: 190}, {X: 170, Y: 250}, {X: 80, Y: 250}},
+		Color:         [3]uint8{0, 0, 180},
+		InteriorColor: &fill,
+	})
+
+	// Line
+	pdf.AddLineAnnotation(Point{X: 250, Y: 60}, Point{X: 450, Y: 100}, [3]uint8{0, 150, 0})
+
+	// Stamp
+	pdf.AddStampAnnotation(250, 120, 180, 50, StampApproved)
+
+	// Squiggly
+	pdf.AddSquigglyAnnotation(250, 190, 200, 15, [3]uint8{255, 100, 0})
+
+	// Caret
+	pdf.AddCaretAnnotation(250, 220, 10, 18, "Insert here")
+
+	// File attachment
+	pdf.AddFileAttachmentAnnotation(250, 260, "test.txt", []byte("test content"), "Attached")
+
+	// Redact
+	pdf.AddRedactAnnotation(50, 300, 200, 20, "REDACTED")
+
+	if err := pdf.WritePdf(resOutDir + "/annot_all_new_types.pdf"); err != nil {
+		t.Fatalf("WritePdf: %v", err)
+	}
+}

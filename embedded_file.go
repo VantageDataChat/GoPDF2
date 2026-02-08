@@ -2,6 +2,7 @@ package gopdf
 
 import (
 	"compress/flate"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -15,6 +16,18 @@ type EmbeddedFile struct {
 	Description string    // Optional description
 	ModDate     time.Time // Modification date (default: now)
 }
+
+// EmbeddedFileInfo contains metadata about an embedded file.
+type EmbeddedFileInfo struct {
+	Name        string
+	MimeType    string
+	Description string
+	Size        int       // uncompressed size in bytes
+	ModDate     time.Time // modification date
+}
+
+// ErrEmbeddedFileNotFound is returned when the specified embedded file name does not exist.
+var ErrEmbeddedFileNotFound = errors.New("embedded file not found")
 
 // embeddedFileStreamObj is the PDF stream object for the embedded file content.
 type embeddedFileStreamObj struct {
@@ -107,8 +120,6 @@ func (bw *byteWriter) Write(p []byte) (int, error) {
 // escapeMimeType converts a MIME type to a PDF name-safe string.
 // e.g. "application/pdf" -> "application#2Fpdf"
 func escapeMimeType(mime string) string {
-	// PDF spec allows subtype names; common practice is to use the MIME subtype.
-	// For simplicity, we just replace "/" with "#2F".
 	result := make([]byte, 0, len(mime))
 	for i := 0; i < len(mime); i++ {
 		if mime[i] == '/' {
@@ -118,6 +129,12 @@ func escapeMimeType(mime string) string {
 		}
 	}
 	return string(result)
+}
+
+// embeddedFileRef tracks an embedded file for the Names dictionary.
+type embeddedFileRef struct {
+	name          string
+	fileSpecObjID int
 }
 
 // AddEmbeddedFile attaches a file to the PDF document.
@@ -156,7 +173,6 @@ func (gp *GoPdf) AddEmbeddedFile(ef EmbeddedFile) error {
 		description: ef.Description,
 		streamObjID: streamObjID,
 	})
-	_ = fileSpecIdx
 
 	// Track embedded files for the Names dictionary.
 	if gp.embeddedFiles == nil {
@@ -170,8 +186,141 @@ func (gp *GoPdf) AddEmbeddedFile(ef EmbeddedFile) error {
 	return nil
 }
 
-// embeddedFileRef tracks an embedded file for the Names dictionary.
-type embeddedFileRef struct {
-	name          string
-	fileSpecObjID int
+// GetEmbeddedFile retrieves the content of an embedded file by name.
+//
+// Example:
+//
+//	data, err := pdf.GetEmbeddedFile("report.csv")
+func (gp *GoPdf) GetEmbeddedFile(name string) ([]byte, error) {
+	for _, ref := range gp.embeddedFiles {
+		if ref.name == name {
+			streamIdx := ref.fileSpecObjID - 2
+			if streamIdx < 0 || streamIdx >= len(gp.pdfObjs) {
+				return nil, ErrEmbeddedFileNotFound
+			}
+			if s, ok := gp.pdfObjs[streamIdx].(embeddedFileStreamObj); ok {
+				out := make([]byte, len(s.data))
+				copy(out, s.data)
+				return out, nil
+			}
+			return nil, ErrEmbeddedFileNotFound
+		}
+	}
+	return nil, ErrEmbeddedFileNotFound
+}
+
+// DeleteEmbeddedFile removes an embedded file by name.
+//
+// Example:
+//
+//	err := pdf.DeleteEmbeddedFile("report.csv")
+func (gp *GoPdf) DeleteEmbeddedFile(name string) error {
+	for i, ref := range gp.embeddedFiles {
+		if ref.name == name {
+			gp.embeddedFiles = append(gp.embeddedFiles[:i], gp.embeddedFiles[i+1:]...)
+			streamIdx := ref.fileSpecObjID - 2
+			fileSpecIdx := ref.fileSpecObjID - 1
+			if streamIdx >= 0 && streamIdx < len(gp.pdfObjs) {
+				gp.pdfObjs[streamIdx] = nullObj{}
+			}
+			if fileSpecIdx >= 0 && fileSpecIdx < len(gp.pdfObjs) {
+				gp.pdfObjs[fileSpecIdx] = nullObj{}
+			}
+			return nil
+		}
+	}
+	return ErrEmbeddedFileNotFound
+}
+
+// UpdateEmbeddedFile replaces the content of an existing embedded file.
+//
+// Example:
+//
+//	err := pdf.UpdateEmbeddedFile("report.csv", gopdf.EmbeddedFile{
+//	    Name:     "report.csv",
+//	    Content:  newData,
+//	    MimeType: "text/csv",
+//	})
+func (gp *GoPdf) UpdateEmbeddedFile(name string, ef EmbeddedFile) error {
+	for _, ref := range gp.embeddedFiles {
+		if ref.name == name {
+			streamIdx := ref.fileSpecObjID - 2
+			if streamIdx < 0 || streamIdx >= len(gp.pdfObjs) {
+				return ErrEmbeddedFileNotFound
+			}
+			if _, ok := gp.pdfObjs[streamIdx].(embeddedFileStreamObj); !ok {
+				return ErrEmbeddedFileNotFound
+			}
+			modDate := ef.ModDate
+			if modDate.IsZero() {
+				modDate = time.Now()
+			}
+			gp.pdfObjs[streamIdx] = embeddedFileStreamObj{
+				data:     ef.Content,
+				mimeType: ef.MimeType,
+				modDate:  modDate,
+			}
+			fileSpecIdx := ref.fileSpecObjID - 1
+			if fileSpecIdx >= 0 && fileSpecIdx < len(gp.pdfObjs) {
+				if fs, ok := gp.pdfObjs[fileSpecIdx].(fileSpecObj); ok && ef.Description != "" {
+					fs.description = ef.Description
+					gp.pdfObjs[fileSpecIdx] = fs
+				}
+			}
+			return nil
+		}
+	}
+	return ErrEmbeddedFileNotFound
+}
+
+// GetEmbeddedFileInfo returns metadata about an embedded file.
+//
+// Example:
+//
+//	info, err := pdf.GetEmbeddedFileInfo("report.csv")
+//	fmt.Println(info.Size, info.MimeType)
+func (gp *GoPdf) GetEmbeddedFileInfo(name string) (EmbeddedFileInfo, error) {
+	for _, ref := range gp.embeddedFiles {
+		if ref.name == name {
+			streamIdx := ref.fileSpecObjID - 2
+			fileSpecIdx := ref.fileSpecObjID - 1
+			info := EmbeddedFileInfo{Name: name}
+			if streamIdx >= 0 && streamIdx < len(gp.pdfObjs) {
+				if s, ok := gp.pdfObjs[streamIdx].(embeddedFileStreamObj); ok {
+					info.MimeType = s.mimeType
+					info.Size = len(s.data)
+					info.ModDate = s.modDate
+				}
+			}
+			if fileSpecIdx >= 0 && fileSpecIdx < len(gp.pdfObjs) {
+				if fs, ok := gp.pdfObjs[fileSpecIdx].(fileSpecObj); ok {
+					info.Description = fs.description
+				}
+			}
+			return info, nil
+		}
+	}
+	return EmbeddedFileInfo{}, ErrEmbeddedFileNotFound
+}
+
+// GetEmbeddedFileNames returns the names of all embedded files.
+//
+// Example:
+//
+//	names := pdf.GetEmbeddedFileNames()
+func (gp *GoPdf) GetEmbeddedFileNames() []string {
+	names := make([]string, len(gp.embeddedFiles))
+	for i, ref := range gp.embeddedFiles {
+		names[i] = ref.name
+	}
+	return names
+}
+
+// GetEmbeddedFileCount returns the number of embedded files.
+//
+// Example:
+//
+//	count := pdf.GetEmbeddedFileCount()
+func (gp *GoPdf) GetEmbeddedFileCount() int {
+	return len(gp.embeddedFiles)
 }

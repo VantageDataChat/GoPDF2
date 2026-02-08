@@ -13,6 +13,7 @@ type CatalogObj struct { //impl IObj
 	metadataObjID      int // index of XMP Metadata stream object (-1 = none)
 	ocPropertiesObjID  int // index of OCProperties object (-1 = none)
 	acroFormObjID      int // index of AcroForm object (-1 = none)
+	markInfoObjID      int // index of MarkInfo object (-1 = none)
 	pageLayout         string
 	pageMode           string
 }
@@ -24,6 +25,7 @@ func (c *CatalogObj) init(funcGetRoot func() *GoPdf) {
 	c.metadataObjID = -1
 	c.ocPropertiesObjID = -1
 	c.acroFormObjID = -1
+	c.markInfoObjID = -1
 }
 
 func (c *CatalogObj) getType() string {
@@ -52,6 +54,9 @@ func (c *CatalogObj) write(w io.Writer, objID int) error {
 	}
 	if c.acroFormObjID >= 0 {
 		fmt.Fprintf(w, "  /AcroForm %d 0 R\n", c.acroFormObjID)
+	}
+	if c.markInfoObjID >= 0 {
+		fmt.Fprintf(w, "  /MarkInfo %d 0 R\n", c.markInfoObjID)
 	}
 	if c.pageLayout != "" {
 		fmt.Fprintf(w, "  /PageLayout /%s\n", c.pageLayout)
@@ -90,4 +95,9 @@ func (c *CatalogObj) SetIndexObjOCProperties(index int) {
 // SetIndexObjAcroForm sets the AcroForm object reference.
 func (c *CatalogObj) SetIndexObjAcroForm(index int) {
 	c.acroFormObjID = index + 1
+}
+
+// SetIndexObjMarkInfo sets the MarkInfo object reference.
+func (c *CatalogObj) SetIndexObjMarkInfo(index int) {
+	c.markInfoObjID = index + 1
 }

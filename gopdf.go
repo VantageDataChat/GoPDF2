@@ -119,8 +119,20 @@ type GoPdf struct {
 	//optional content groups (layers)
 	ocgs []ocgRef
 
+	//layer configurations (alternate OCG configs)
+	layerConfigs []LayerConfig
+
+	//layer UI configuration
+	layerUIConfig *LayerUIConfig
+
 	//form fields (AcroForm)
 	formFields []formFieldRef
+
+	//mark info
+	markInfo *MarkInfo
+
+	//journal (undo/redo)
+	journal *Journal
 }
 
 // formFieldRef stores a form field and its object index.
@@ -2356,9 +2368,20 @@ func (gp *GoPdf) prepare() {
 
 	// Add OCProperties for Optional Content Groups.
 	if len(gp.ocgs) > 0 {
-		ocpIdx := gp.addObj(ocPropertiesObj{ocgs: gp.ocgs})
+		ocpIdx := gp.addObj(ocPropertiesObj{
+			ocgs:         gp.ocgs,
+			layerConfigs: gp.layerConfigs,
+			uiConfig:     gp.layerUIConfig,
+		})
 		catalogObj := gp.pdfObjs[gp.indexOfCatalogObj].(*CatalogObj)
 		catalogObj.SetIndexObjOCProperties(ocpIdx)
+	}
+
+	// Add MarkInfo dictionary.
+	if gp.markInfo != nil {
+		miIdx := gp.addObj(markInfoObj{info: *gp.markInfo})
+		catalogObj := gp.pdfObjs[gp.indexOfCatalogObj].(*CatalogObj)
+		catalogObj.SetIndexObjMarkInfo(miIdx)
 	}
 
 	// Add AcroForm for interactive form fields.

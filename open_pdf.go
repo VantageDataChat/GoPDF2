@@ -19,6 +19,11 @@ type OpenPDFOption struct {
 
 	// Protection sets password protection on the output PDF.
 	Protection *PDFProtectionConfig
+
+	// Password is the user or owner password for opening encrypted PDFs.
+	// If the PDF is encrypted and no password is provided, OpenPDF returns
+	// ErrEncryptedPDF. Supports RC4 encryption (V1/V2, R2/R3).
+	Password string
 }
 
 func (o *OpenPDFOption) box() string {
@@ -92,6 +97,28 @@ func (gp *GoPdf) OpenPDFFromStream(rs *io.ReadSeeker, opt *OpenPDFOption) (retEr
 
 func (gp *GoPdf) openPDFFromData(data []byte, opt *OpenPDFOption) error {
 	box := opt.box()
+
+	// Phase 0: detect and decrypt encrypted PDFs.
+	if encObjNum := detectEncryption(data); encObjNum > 0 {
+		password := ""
+		if opt != nil {
+			password = opt.Password
+		}
+		if password == "" {
+			// Try empty password first (some PDFs have empty user password).
+			password = ""
+		}
+		dc, err := authenticate(data, password)
+		if err != nil {
+			if opt == nil || opt.Password == "" {
+				return ErrEncryptedPDF
+			}
+			return err
+		}
+		if dc != nil {
+			data = decryptPDF(data, dc)
+		}
+	}
 
 	// Phase 1: probe page count and sizes with a temporary importer.
 	probe := gofpdi.NewImporter()

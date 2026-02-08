@@ -42,7 +42,7 @@ This document provides a detailed comparison between GoPDF2 (pure Go) and PyMuPD
 | Incremental save | ✅ `IncrementalSave()` | ✅ `saveIncr()` |
 | Document cloning | ✅ `Clone()` | ❌ (manual serialize) |
 | Close document | Auto GC | `close()` |
-| Open encrypted PDF | ❌ | ✅ `authenticate()` |
+| Open encrypted PDF | ✅ `OpenPDF(Password)` | ✅ `authenticate()` |
 | Multi-format support (XPS/EPUB/HTML) | ❌ | ✅ |
 
 ### 2. Page Management
@@ -79,10 +79,10 @@ This document provides a detailed comparison between GoPDF2 (pure Go) and PyMuPD
 | Font subsetting | ✅ Automatic | ✅ `subset_fonts()` |
 | Kerning | ✅ | ✅ |
 | Text extraction | ✅ `ExtractPageText()` | ✅ `get_text()` |
-| Text search | ❌ | ✅ `search_for()` |
+| Text search | ✅ `SearchText()` | ✅ `search_for()` |
 | Text block/dict extraction | ✅ `ExtractTextFromPage()` | ✅ `get_text("dict")` |
 | Font info query | ✅ `GetFonts()` | ✅ `get_page_fonts()` |
-| Font extraction | ❌ | ✅ `extract_font()` |
+| Font extraction | ✅ `ExtractFontsFromPage()` | ✅ `extract_font()` |
 | CJK font support | ✅ | ✅ |
 
 ### 4. Drawing
@@ -123,26 +123,26 @@ This document provides a detailed comparison between GoPDF2 (pure Go) and PyMuPD
 
 | Feature | GoPDF2 | PyMuPDF |
 |---------|--------|---------|
-| Text (sticky note) | ✅ | ✅ `add_text_annot()` |
-| Highlight | ✅ | ✅ `add_highlight_annot()` |
+| Text (sticky note) | ✅ `AddTextAnnotation()` | ✅ `add_text_annot()` |
+| Highlight | ✅ `AddHighlightAnnotation()` | ✅ `add_highlight_annot()` |
 | Underline | ✅ | ✅ `add_underline_annot()` |
 | Strikeout | ✅ | ✅ `add_strikeout_annot()` |
 | Rectangle | ✅ | ✅ `add_rect_annot()` |
 | Circle | ✅ | ✅ `add_circle_annot()` |
-| Free text | ✅ | ✅ `add_freetext_annot()` |
-| Ink | ❌ | ✅ `add_ink_annot()` |
-| Polyline | ❌ | ✅ `add_polyline_annot()` |
-| Polygon | ❌ | ✅ `add_polygon_annot()` |
-| Line | ❌ | ✅ `add_line_annot()` |
-| Stamp | ❌ | ✅ `add_stamp_annot()` |
-| Squiggly | ❌ | ✅ `add_squiggly_annot()` |
-| Caret | ❌ | ✅ `add_caret_annot()` |
-| File attachment | ❌ | ✅ `add_file_annot()` |
-| Redaction | ❌ | ✅ `add_redact_annot()` |
-| Delete annotation | ❌ | ✅ `delete_annot()` |
-| Modify annotation | ❌ | ✅ Annot class methods |
-| Iterate annotations | ❌ | ✅ `annots()` |
-| Apply redactions | ❌ | ✅ `apply_redactions()` |
+| Free text | ✅ `AddFreeTextAnnotation()` | ✅ `add_freetext_annot()` |
+| Ink | ✅ `AddInkAnnotation()` | ✅ `add_ink_annot()` |
+| Polyline | ✅ `AddPolylineAnnotation()` | ✅ `add_polyline_annot()` |
+| Polygon | ✅ `AddPolygonAnnotation()` | ✅ `add_polygon_annot()` |
+| Line | ✅ `AddLineAnnotation()` | ✅ `add_line_annot()` |
+| Stamp | ✅ `AddStampAnnotation()` | ✅ `add_stamp_annot()` |
+| Squiggly | ✅ `AddSquigglyAnnotation()` | ✅ `add_squiggly_annot()` |
+| Caret | ✅ `AddCaretAnnotation()` | ✅ `add_caret_annot()` |
+| File attachment | ✅ `AddFileAttachmentAnnotation()` | ✅ `add_file_annot()` |
+| Redaction | ✅ `AddRedactAnnotation()` | ✅ `add_redact_annot()` |
+| Delete annotation | ✅ `DeleteAnnotation()` | ✅ `delete_annot()` |
+| Modify annotation | ✅ `ModifyAnnotation()` | ✅ Annot class methods |
+| Iterate annotations | ✅ `GetAnnotations()` | ✅ `annots()` |
+| Apply redactions | ✅ `ApplyRedactions()` | ✅ `apply_redactions()` |
 
 ### 7. Watermarks
 
@@ -164,10 +164,10 @@ This document provides a detailed comparison between GoPDF2 (pure Go) and PyMuPD
 | Set TOC | ✅ `SetTOC()` | ✅ `set_toc()` |
 | Hierarchical TOC | ✅ | ✅ |
 | Add single bookmark | ✅ `AddOutline()` | ✅ |
-| Modify single bookmark | ❌ | ✅ `set_toc_item()` |
-| Delete single bookmark | ❌ | ✅ `del_toc_item()` |
-| Bookmark color/bold/italic | ❌ | ✅ |
-| Bookmark collapse control | ❌ | ✅ `collapse` parameter |
+| Modify single bookmark | ✅ `ModifyBookmark()` | ✅ `set_toc_item()` |
+| Delete single bookmark | ✅ `DeleteBookmark()` | ✅ `del_toc_item()` |
+| Bookmark color/bold/italic | ✅ `SetBookmarkStyle()` | ✅ |
+| Bookmark collapse control | ✅ `SetBookmarkStyle()` | ✅ `collapse` parameter |
 
 ### 9. Metadata
 
@@ -184,12 +184,12 @@ This document provides a detailed comparison between GoPDF2 (pure Go) and PyMuPD
 | Feature | GoPDF2 | PyMuPDF |
 |---------|--------|---------|
 | Add embedded file | ✅ `AddEmbeddedFile()` | ✅ `embfile_add()` |
-| Get embedded file | ❌ | ✅ `embfile_get()` |
-| Delete embedded file | ❌ | ✅ `embfile_del()` |
-| Update embedded file | ❌ | ✅ `embfile_upd()` |
-| Embedded file info | ❌ | ✅ `embfile_info()` |
-| List embedded files | ❌ | ✅ `embfile_names()` |
-| Embedded file count | ❌ | ✅ `embfile_count()` |
+| Get embedded file | ✅ `GetEmbeddedFile()` | ✅ `embfile_get()` |
+| Delete embedded file | ✅ `DeleteEmbeddedFile()` | ✅ `embfile_del()` |
+| Update embedded file | ✅ `UpdateEmbeddedFile()` | ✅ `embfile_upd()` |
+| Embedded file info | ✅ `GetEmbeddedFileInfo()` | ✅ `embfile_info()` |
+| List embedded files | ✅ `GetEmbeddedFileNames()` | ✅ `embfile_names()` |
+| Embedded file count | ✅ `GetEmbeddedFileCount()` | ✅ `embfile_count()` |
 
 ### 11. Optional Content Groups (OCG/Layers)
 
@@ -197,11 +197,11 @@ This document provides a detailed comparison between GoPDF2 (pure Go) and PyMuPD
 |---------|--------|---------|
 | Add OCG | ✅ `AddOCG()` | ✅ `add_ocg()` |
 | Get all OCGs | ✅ `GetOCGs()` | ✅ `get_ocgs()` |
-| Layer configurations | ❌ | ✅ `add_layer()` / `get_layers()` |
-| Switch layers | ❌ | ✅ `switch_layer()` |
-| OCMD (membership dict) | ❌ | ✅ `set_ocmd()` / `get_ocmd()` |
-| Layer UI config | ❌ | ✅ `layer_ui_configs()` |
-| Batch set OCG states | ❌ | ✅ `set_layer()` |
+| Layer configurations | ✅ `AddLayerConfig()` / `GetLayerConfigs()` | ✅ `add_layer()` / `get_layers()` |
+| Switch layers | ✅ `SwitchLayer()` | ✅ `switch_layer()` |
+| OCMD (membership dict) | ✅ `AddOCMD()` / `GetOCMD()` | ✅ `set_ocmd()` / `get_ocmd()` |
+| Layer UI config | ✅ `SetLayerUIConfig()` | ✅ `layer_ui_configs()` |
+| Batch set OCG states | ✅ `SetOCGStates()` | ✅ `set_layer()` |
 
 ### 12. Page Layout & Display
 
@@ -209,10 +209,10 @@ This document provides a detailed comparison between GoPDF2 (pure Go) and PyMuPD
 |---------|--------|---------|
 | Page layout | ✅ `SetPageLayout()` | ✅ `set_pagelayout()` |
 | Page mode | ✅ `SetPageMode()` | ✅ `set_pagemode()` |
-| MarkInfo | ❌ | ✅ `set_markinfo()` |
+| MarkInfo | ✅ `SetMarkInfo()` | ✅ `set_markinfo()` |
 | Page labels | ✅ `SetPageLabels()` | ✅ `set_page_labels()` |
 | Get page labels | ✅ `GetPageLabels()` | ✅ `get_page_labels()` |
-| Find pages by label | ❌ | ✅ `get_page_numbers()` |
+| Find pages by label | ✅ `FindPagesByLabel()` | ✅ `get_page_numbers()` |
 
 ### 13. Security & Encryption
 
@@ -220,8 +220,8 @@ This document provides a detailed comparison between GoPDF2 (pure Go) and PyMuPD
 |---------|--------|---------|
 | Password protection | ✅ `PDFProtectionConfig` | ✅ `save(encryption=...)` |
 | Permission control | ✅ | ✅ |
-| Open encrypted PDF | ❌ | ✅ `authenticate()` |
-| Encryption method selection | Limited | ✅ Multiple standards |
+| Open encrypted PDF | ✅ `OpenPDF(Password)` | ✅ `authenticate()` |
+| Encryption method selection | ✅ RC4 (V1/V2) | ✅ Multiple standards |
 | Digital signatures | ✅ `SignPDF()` / `VerifySignature()` | ✅ `get_sigflags()` |
 
 ### 14. Document Scrubbing & Optimization
@@ -232,10 +232,10 @@ This document provides a detailed comparison between GoPDF2 (pure Go) and PyMuPD
 | Garbage collection | ✅ `GarbageCollect()` | ✅ `save(garbage=N)` |
 | Object deduplication | ✅ `GCDedup` | ✅ `save(garbage=3)` |
 | Document statistics | ✅ `GetDocumentStats()` | Manual counting |
-| Linearization (Web optimize) | ❌ | ✅ `save(linear=True)` |
-| Content stream cleaning | ❌ | ✅ `save(clean=True)` |
+| Linearization (Web optimize) | ✅ `Linearize()` | ✅ `save(linear=True)` |
+| Content stream cleaning | ✅ `CleanContentStreams()` | ✅ `save(clean=True)` |
 | Image recompression | ✅ `RecompressImages()` | ✅ `rewrite_images()` |
-| Colorspace conversion | ❌ | ✅ `recolor()` |
+| Colorspace conversion | ✅ `ConvertColorspace()` | ✅ `recolor()` |
 
 ### 15. Content Element Operations
 
@@ -260,22 +260,22 @@ This document provides a detailed comparison between GoPDF2 (pure Go) and PyMuPD
 | PDF version control | ✅ `SetPDFVersion()` | Via header |
 | Typed object IDs | ✅ `ObjID` | ✅ xref system |
 | Object count | ✅ `GetObjectCount()` | ✅ `xref_length()` |
-| Read object definition | ❌ | ✅ `xref_object()` |
-| Modify object definition | ❌ | ✅ `update_object()` |
-| Read/write dict keys | ❌ | ✅ `xref_get_key()` / `xref_set_key()` |
-| Read/write stream data | ❌ | ✅ `xref_stream()` / `update_stream()` |
-| Copy objects | ❌ | ✅ `xref_copy()` |
-| PDF Catalog access | ❌ | ✅ `pdf_catalog()` |
-| PDF Trailer access | ❌ | ✅ `pdf_trailer()` |
+| Read object definition | ✅ `ReadObject()` | ✅ `xref_object()` |
+| Modify object definition | ✅ `UpdateObject()` | ✅ `update_object()` |
+| Read/write dict keys | ✅ `GetDictKey()` / `SetDictKey()` | ✅ `xref_get_key()` / `xref_set_key()` |
+| Read/write stream data | ✅ `GetStream()` / `SetStream()` | ✅ `xref_stream()` / `update_stream()` |
+| Copy objects | ✅ `CopyObject()` | ✅ `xref_copy()` |
+| PDF Catalog access | ✅ `GetCatalog()` | ✅ `pdf_catalog()` |
+| PDF Trailer access | ✅ `GetTrailer()` | ✅ `pdf_trailer()` |
 
 ### 17. Journalling (Undo/Redo)
 
 | Feature | GoPDF2 | PyMuPDF |
 |---------|--------|---------|
-| Enable journalling | ❌ | ✅ `journal_enable()` |
-| Undo/Redo | ❌ | ✅ `journal_undo()` / `journal_redo()` |
-| Save/Load journal | ❌ | ✅ `journal_save()` / `journal_load()` |
-| Named operations | ❌ | ✅ `journal_start_op()` |
+| Enable journalling | ✅ `JournalEnable()` | ✅ `journal_enable()` |
+| Undo/Redo | ✅ `JournalUndo()` / `JournalRedo()` | ✅ `journal_undo()` / `journal_redo()` |
+| Save/Load journal | ✅ `JournalSave()` / `JournalLoad()` | ✅ `journal_save()` / `journal_load()` |
+| Named operations | ✅ `JournalStartOp()` | ✅ `journal_start_op()` |
 
 ### 18. Form Fields (Widgets/AcroForm)
 
@@ -287,10 +287,10 @@ This document provides a detailed comparison between GoPDF2 (pure Go) and PyMuPD
 | Add dropdown | ✅ `AddDropdown()` | ✅ `add_widget()` |
 | Add signature field | ✅ `AddSignatureField()` | ✅ `add_widget()` |
 | Get form fields | ✅ `GetFormFields()` | ✅ Widget class |
-| Delete form field | ❌ | ✅ `delete_widget()` |
-| Modify form values | ❌ | ✅ Widget class |
-| Form PDF detection | ❌ | ✅ `is_form_pdf` |
-| Bake annotations/fields | ❌ | ✅ `bake()` |
+| Delete form field | ✅ `DeleteFormField()` | ✅ `delete_widget()` |
+| Modify form values | ✅ `ModifyFormFieldValue()` | ✅ Widget class |
+| Form PDF detection | ✅ `IsFormPDF()` | ✅ `is_form_pdf` |
+| Bake annotations/fields | ✅ `BakeAnnotations()` | ✅ `bake()` |
 
 ### 19. Other Features
 
@@ -325,14 +325,9 @@ This document provides a detailed comparison between GoPDF2 (pure Go) and PyMuPD
 ## PyMuPDF Unique Strengths
 
 1. **Full-fidelity Page Rendering** — High-quality PDF rendering via MuPDF engine
-2. **Text Search** — Search text on pages with position results
-3. **OCR** — Optical character recognition via Tesseract
-4. **Multi-format Support** — Open XPS, EPUB, HTML, SVG, images, etc.
-5. **Journalling** — Undo/redo operations
-6. **Redaction Annotations** — Securely and permanently remove sensitive content
-7. **Low-level PDF Operations** — Direct read/write of PDF objects, dict keys, streams
-8. **Linearization** — Generate web-optimized PDFs
-9. **More Annotation Types** — Ink, polyline, polygon, stamp, squiggly, caret, file attachment, redaction, etc.
+2. **OCR** — Optical character recognition via Tesseract
+3. **Multi-format Support** — Open XPS, EPUB, HTML, SVG, images, etc.
+4. **Redaction Annotations** — Securely and permanently remove sensitive content
 
 ---
 
@@ -351,7 +346,7 @@ This document provides a detailed comparison between GoPDF2 (pure Go) and PyMuPD
 | Form filling and processing | GoPDF2 (create) / PyMuPDF (full read/write) |
 | Multi-format document conversion | PyMuPDF |
 | Low-level PDF object manipulation | PyMuPDF |
-| Redaction / secure content removal | PyMuPDF |
+| Redaction / secure content removal | GoPDF2 (basic) / PyMuPDF (advanced) |
 
 ---
 
@@ -361,14 +356,14 @@ Features theoretically implementable in pure Go, with varying complexity:
 
 | Feature | Difficulty | Notes |
 |---------|-----------|-------|
-| More annotation types | Medium | Ink, polyline, polygon, stamp, etc. |
-| MarkInfo | Low | Simple dictionary write |
-| Embedded file read/delete | Medium | Requires Names dictionary parsing |
+| ~~More annotation types~~ | ~~Medium~~ | ✅ Implemented — Ink, polyline, polygon, line, stamp, squiggly, caret, file attachment, redaction, etc. |
+| MarkInfo | Low | ✅ Implemented — `SetMarkInfo()`, `GetMarkInfo()` |
+| ~~Embedded file read/delete~~ | ~~Medium~~ | ✅ Implemented — `GetEmbeddedFile()`, `DeleteEmbeddedFile()`, `UpdateEmbeddedFile()`, `GetEmbeddedFileInfo()`, `GetEmbeddedFileNames()`, `GetEmbeddedFileCount()` |
 | ~~Form fields (AcroForm)~~ | ~~High~~ | ✅ Implemented — `AddFormField()`, `AddTextField()`, `AddCheckbox()`, `AddDropdown()` |
 | ~~Text extraction~~ | ~~Very High~~ | ✅ Implemented — `ExtractTextFromPage()`, `ExtractPageText()` |
 | ~~Image extraction~~ | ~~Very High~~ | ✅ Implemented — `ExtractImagesFromPage()`, `ExtractImagesFromAllPages()` |
 | ~~Digital signatures~~ | ~~High~~ | ✅ Implemented — `SignPDF()`, `VerifySignature()` |
 | Page rendering | Not feasible | ✅ Basic rendering implemented — `RenderPageToImage()` (lightweight; full-fidelity requires MuPDF) |
 | OCR | Not feasible | Requires Tesseract or similar |
-| Journalling (undo/redo) | High | Requires operation recording and replay |
-| Linearization | High | Requires PDF file structure reorganization |
+| Journalling (undo/redo) | High | ✅ Implemented — `JournalEnable()`, `JournalUndo()`, `JournalRedo()`, `JournalSave()`, `JournalLoad()` |
+| Linearization | High | ✅ Implemented — `Linearize()` (simplified web optimization) |
