@@ -17,6 +17,19 @@ Requires Go 1.13+.
 - **PDF annotations** — sticky notes, highlights, underlines, strikeouts, squares, circles, and free text via `AddAnnotation`
 - **Page manipulation** — extract pages (`ExtractPages`), merge PDFs (`MergePages`), delete pages (`DeletePage`), copy pages (`CopyPage`)
 - **Page inspection** — query page sizes (`GetPageSize`, `GetAllPageSizes`), source PDF page count (`GetSourcePDFPageCount`)
+- **Page rotation** — set display rotation for pages via `SetPageRotation` / `GetPageRotation`
+- **Page reordering** — rearrange pages via `SelectPages`, `SelectPagesFromFile`, `SelectPagesFromBytes`
+- **Embedded files** — attach files to PDF via `AddEmbeddedFile` (shown in viewer's attachment panel)
+- **Extended paper sizes** — A0–A10, B0–B10, letter, legal, tabloid, ledger with landscape variants via `PaperSize(name)`
+- **Geometry utilities** — `RectFrom` with Contains/Intersects/Union, `Matrix` for 2D transforms, `Distance`
+- **Content element CRUD** — list, query, delete, add, modify, and reposition individual content elements (text, images, lines, rectangles, ovals, etc.) on any page via `GetPageElements`, `DeleteElement`, `ModifyTextElement`, `ModifyElementPosition`, `InsertLineElement`, `InsertRectElement`, `ClearPage`, and more
+- **PDF version control** — set output PDF version (1.4–2.0) via `SetPDFVersion` / `GetPDFVersion`
+- **Garbage collection** — remove null/deleted objects and compact the document via `GarbageCollect`
+- **Page labels** — define custom page numbering (Roman, alphabetic, decimal with prefixes) via `SetPageLabels`
+- **Typed object IDs** — `ObjID` wrapper for type-safe PDF object references
+- **Incremental save** — write only modified objects via `IncrementalSave` for fast saves on large documents
+- **XMP metadata** — embed full XMP metadata streams (Dublin Core, PDF/A, etc.) via `SetXMPMetadata`
+- **Document cloning** — deep copy a GoPdf instance via `Clone` for independent modifications
 - Draw lines, ovals, rectangles (with rounded corners), curves, polygons
 - Draw images (JPEG, PNG) with mask, crop, rotation, and transparency
 - Password protection
@@ -395,6 +408,180 @@ count, _ := gopdf.GetSourcePDFPageCount("input.pdf")
 
 // Get page sizes from a source PDF
 pageSizes, _ := gopdf.GetSourcePDFPageSizes("input.pdf")
+```
+
+### Paper Sizes
+
+Use predefined paper sizes by name:
+
+```go
+// Look up paper size by name (case-insensitive)
+size := gopdf.PaperSize("a5")
+pdf.Start(gopdf.Config{PageSize: *size})
+
+// Landscape variant
+sizeL := gopdf.PaperSize("a4-l")
+
+// Available: a0–a10, b0–b10, letter, legal, tabloid, ledger,
+// statement, executive, folio, quarto (append "-l" for landscape)
+names := gopdf.PaperSizeNames()
+```
+
+### Page Rotation
+
+Set display rotation for pages (does not modify content):
+
+```go
+pdf.SetPageRotation(1, 90)   // rotate page 1 by 90° clockwise
+pdf.SetPageRotation(2, 180)  // rotate page 2 by 180°
+
+angle, _ := pdf.GetPageRotation(1) // returns 90
+```
+
+### Page Reordering
+
+Rearrange, duplicate, or subset pages:
+
+```go
+// Reverse page order of current document
+newPdf, _ := pdf.SelectPages([]int{3, 2, 1})
+newPdf.WritePdf("reversed.pdf")
+
+// Select specific pages from a file
+newPdf, _ = gopdf.SelectPagesFromFile("input.pdf", []int{1, 3, 5}, nil)
+
+// Duplicate a page
+newPdf, _ = pdf.SelectPages([]int{1, 1, 1})
+```
+
+### Embedded Files
+
+Attach files to the PDF (shown in viewer's attachment panel):
+
+```go
+data, _ := os.ReadFile("report.csv")
+pdf.AddEmbeddedFile(gopdf.EmbeddedFile{
+    Name:        "report.csv",
+    Content:     data,
+    MimeType:    "text/csv",
+    Description: "Monthly report data",
+})
+```
+
+### Content Element CRUD
+
+List, query, delete, modify, and add individual content elements on any page:
+
+```go
+// List all elements on page 1
+elements, _ := pdf.GetPageElements(1)
+for _, e := range elements {
+    fmt.Printf("[%d] %s at (%.1f, %.1f)\n", e.Index, e.Type, e.X, e.Y)
+}
+
+// Get only text elements
+texts, _ := pdf.GetPageElementsByType(1, gopdf.ElementText)
+
+// Delete a specific element by index
+pdf.DeleteElement(1, 0)
+
+// Delete all lines from a page
+removed, _ := pdf.DeleteElementsByType(1, gopdf.ElementLine)
+
+// Delete elements within a rectangular area
+pdf.DeleteElementsInRect(1, 0, 0, 100, 100)
+
+// Clear all content from a page
+pdf.ClearPage(1)
+
+// Modify text content
+pdf.ModifyTextElement(1, 0, "New text")
+
+// Move an element to a new position
+pdf.ModifyElementPosition(1, 0, 200, 300)
+
+// Insert new elements on an existing page
+pdf.InsertLineElement(1, 10, 400, 500, 400)
+pdf.InsertRectElement(1, 50, 420, 200, 50, "DF")
+pdf.InsertOvalElement(1, 300, 420, 450, 470)
+```
+
+### PDF Version Control
+
+Set the output PDF version:
+
+```go
+pdf.SetPDFVersion(gopdf.PDFVersion20) // output PDF 2.0
+v := pdf.GetPDFVersion()              // returns PDFVersion20
+```
+
+### Garbage Collection
+
+Remove null/deleted objects to reduce file size:
+
+```go
+pdf.DeletePage(2)
+removed := pdf.GarbageCollect(gopdf.GCCompact)
+fmt.Printf("Removed %d unused objects\n", removed)
+```
+
+### Page Labels
+
+Define custom page numbering displayed in PDF viewers:
+
+```go
+pdf.SetPageLabels([]gopdf.PageLabel{
+    {PageIndex: 0, Style: gopdf.PageLabelRomanLower, Start: 1},  // i, ii, iii
+    {PageIndex: 3, Style: gopdf.PageLabelDecimal, Start: 1},     // 1, 2, 3, ...
+    {PageIndex: 10, Style: gopdf.PageLabelAlphaUpper, Prefix: "Appendix ", Start: 1},
+})
+```
+
+### XMP Metadata
+
+Embed rich XMP metadata (Dublin Core, PDF/A conformance, etc.):
+
+```go
+pdf.SetXMPMetadata(gopdf.XMPMetadata{
+    Title:       "Annual Report 2025",
+    Creator:     []string{"John Doe"},
+    Description: "Company annual report",
+    Subject:     []string{"finance", "report"},
+    CreatorTool: "GoPDF2",
+    Producer:    "GoPDF2",
+    CreateDate:  time.Now(),
+    ModifyDate:  time.Now(),
+    PDFAPart:    1,
+    PDFAConformance: "B",
+})
+```
+
+### Incremental Save
+
+Save only modified objects for fast updates on large documents:
+
+```go
+originalData, _ := os.ReadFile("input.pdf")
+pdf := gopdf.GoPdf{}
+pdf.OpenPDFFromBytes(originalData, nil)
+pdf.SetPage(1)
+pdf.SetXY(100, 100)
+pdf.Text("Added text")
+
+result, _ := pdf.IncrementalSave(originalData, nil)
+os.WriteFile("output.pdf", result, 0644)
+```
+
+### Document Cloning
+
+Deep copy a document for independent modifications:
+
+```go
+clone, _ := pdf.Clone()
+clone.SetPage(1)
+clone.SetXY(100, 100)
+clone.Text("Only in clone")
+clone.WritePdf("clone.pdf")
 ```
 
 ## API Reference

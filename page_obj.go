@@ -12,6 +12,7 @@ type PageObj struct { //impl IObj
 	ResourcesRelate string
 	pageOption      PageOption
 	LinkObjIds      []int
+	rotation        int // page display rotation (0, 90, 180, 270)
 	getRoot         func() *GoPdf
 }
 
@@ -59,6 +60,9 @@ func (p *PageObj) write(w io.Writer, objID int) error {
 	if p.pageOption.isTrimBoxSet() {
 		trimBox := p.pageOption.TrimBox
 		fmt.Fprintf(w, " /TrimBox [ %0.2f %0.2f %0.2f %0.2f ]\n", trimBox.Left, trimBox.Top, trimBox.Right, trimBox.Bottom)
+	}
+	if p.rotation != 0 {
+		fmt.Fprintf(w, " /Rotate %d\n", p.rotation)
 	}
 	io.WriteString(w, ">>\n")
 	return nil

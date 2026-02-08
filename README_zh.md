@@ -17,6 +17,19 @@ GoPDF2 是一个用 Go 编写的 PDF 生成库。基于 [gopdf](https://github.c
 - **PDF 注释** — 通过 `AddAnnotation` 添加便签、高亮、下划线、删除线、矩形、圆形、自由文本等注释
 - **页面操作** — 提取页面（`ExtractPages`）、合并 PDF（`MergePages`）、删除页面（`DeletePage`）、复制页面（`CopyPage`）
 - **页面信息查询** — 查询页面尺寸（`GetPageSize`、`GetAllPageSizes`）、源 PDF 页数（`GetSourcePDFPageCount`）
+- **页面旋转** — 通过 `SetPageRotation` / `GetPageRotation` 设置页面显示旋转角度
+- **页面重排** — 通过 `SelectPages`、`SelectPagesFromFile`、`SelectPagesFromBytes` 重新排列页面顺序
+- **嵌入文件** — 通过 `AddEmbeddedFile` 将文件附加到 PDF（在阅读器的附件面板中显示）
+- **扩展纸张尺寸** — A0–A10、B0–B10、letter、legal、tabloid、ledger 及横向变体，通过 `PaperSize(name)` 查询
+- **几何工具** — `RectFrom`（包含/相交/合并）、`Matrix`（2D 变换）、`Distance`（距离计算）
+- **内容元素 CRUD** — 列出、查询、删除、添加、修改、重定位页面上的单个内容元素（文本、图片、线条、矩形、椭圆等），通过 `GetPageElements`、`DeleteElement`、`ModifyTextElement`、`ModifyElementPosition`、`InsertLineElement`、`InsertRectElement`、`ClearPage` 等方法
+- **PDF 版本控制** — 通过 `SetPDFVersion` / `GetPDFVersion` 设置输出 PDF 版本（1.4–2.0）
+- **垃圾回收** — 通过 `GarbageCollect` 移除已删除的空对象，压缩文档体积
+- **页面标签** — 通过 `SetPageLabels` 定义自定义页码编号（罗马数字、字母、十进制，支持前缀）
+- **类型化对象 ID** — `ObjID` 包装器，提供类型安全的 PDF 对象引用
+- **增量保存** — 通过 `IncrementalSave` 仅写入修改过的对象，大幅提升大文档保存速度
+- **XMP 元数据** — 通过 `SetXMPMetadata` 嵌入完整的 XMP 元数据流（Dublin Core、PDF/A 等）
+- **文档克隆** — 通过 `Clone` 深拷贝 GoPdf 实例，独立修改互不影响
 - 绘制线条、椭圆、矩形（支持圆角）、曲线、多边形
 - 插入图片（JPEG、PNG），支持遮罩、裁剪、旋转、透明度
 - PDF 密码保护
@@ -395,6 +408,180 @@ count, _ := gopdf.GetSourcePDFPageCount("input.pdf")
 
 // 获取源 PDF 的页面尺寸
 pageSizes, _ := gopdf.GetSourcePDFPageSizes("input.pdf")
+```
+
+### 纸张尺寸
+
+通过名称查询预定义纸张尺寸：
+
+```go
+// 按名称查询纸张尺寸（不区分大小写）
+size := gopdf.PaperSize("a5")
+pdf.Start(gopdf.Config{PageSize: *size})
+
+// 横向变体
+sizeL := gopdf.PaperSize("a4-l")
+
+// 支持：a0–a10、b0–b10、letter、legal、tabloid、ledger、
+// statement、executive、folio、quarto（加 "-l" 后缀为横向）
+names := gopdf.PaperSizeNames()
+```
+
+### 页面旋转
+
+设置页面显示旋转角度（不修改页面内容）：
+
+```go
+pdf.SetPageRotation(1, 90)   // 第 1 页顺时针旋转 90°
+pdf.SetPageRotation(2, 180)  // 第 2 页旋转 180°
+
+angle, _ := pdf.GetPageRotation(1) // 返回 90
+```
+
+### 页面重排
+
+重新排列、复制或筛选页面：
+
+```go
+// 反转当前文档的页面顺序
+newPdf, _ := pdf.SelectPages([]int{3, 2, 1})
+newPdf.WritePdf("reversed.pdf")
+
+// 从文件中选择指定页面
+newPdf, _ = gopdf.SelectPagesFromFile("input.pdf", []int{1, 3, 5}, nil)
+
+// 复制页面
+newPdf, _ = pdf.SelectPages([]int{1, 1, 1})
+```
+
+### 嵌入文件
+
+将文件附加到 PDF（在阅读器的附件面板中显示）：
+
+```go
+data, _ := os.ReadFile("report.csv")
+pdf.AddEmbeddedFile(gopdf.EmbeddedFile{
+    Name:        "report.csv",
+    Content:     data,
+    MimeType:    "text/csv",
+    Description: "月度报告数据",
+})
+```
+
+### 内容元素 CRUD
+
+列出、查询、删除、修改、添加页面上的单个内容元素：
+
+```go
+// 列出第 1 页的所有元素
+elements, _ := pdf.GetPageElements(1)
+for _, e := range elements {
+    fmt.Printf("[%d] %s 位于 (%.1f, %.1f)\n", e.Index, e.Type, e.X, e.Y)
+}
+
+// 仅获取文本元素
+texts, _ := pdf.GetPageElementsByType(1, gopdf.ElementText)
+
+// 按索引删除指定元素
+pdf.DeleteElement(1, 0)
+
+// 删除页面上所有线条
+removed, _ := pdf.DeleteElementsByType(1, gopdf.ElementLine)
+
+// 删除矩形区域内的元素
+pdf.DeleteElementsInRect(1, 0, 0, 100, 100)
+
+// 清空页面所有内容
+pdf.ClearPage(1)
+
+// 修改文本内容
+pdf.ModifyTextElement(1, 0, "新文本")
+
+// 移动元素到新位置
+pdf.ModifyElementPosition(1, 0, 200, 300)
+
+// 在已有页面上插入新元素
+pdf.InsertLineElement(1, 10, 400, 500, 400)
+pdf.InsertRectElement(1, 50, 420, 200, 50, "DF")
+pdf.InsertOvalElement(1, 300, 420, 450, 470)
+```
+
+### PDF 版本控制
+
+设置输出 PDF 版本：
+
+```go
+pdf.SetPDFVersion(gopdf.PDFVersion20) // 输出 PDF 2.0
+v := pdf.GetPDFVersion()              // 返回 PDFVersion20
+```
+
+### 垃圾回收
+
+移除已删除的空对象以减小文件体积：
+
+```go
+pdf.DeletePage(2)
+removed := pdf.GarbageCollect(gopdf.GCCompact)
+fmt.Printf("移除了 %d 个无用对象\n", removed)
+```
+
+### 页面标签
+
+定义 PDF 阅读器中显示的自定义页码编号：
+
+```go
+pdf.SetPageLabels([]gopdf.PageLabel{
+    {PageIndex: 0, Style: gopdf.PageLabelRomanLower, Start: 1},  // i, ii, iii
+    {PageIndex: 3, Style: gopdf.PageLabelDecimal, Start: 1},     // 1, 2, 3, ...
+    {PageIndex: 10, Style: gopdf.PageLabelAlphaUpper, Prefix: "附录 ", Start: 1},
+})
+```
+
+### XMP 元数据
+
+嵌入丰富的 XMP 元数据（Dublin Core、PDF/A 合规等）：
+
+```go
+pdf.SetXMPMetadata(gopdf.XMPMetadata{
+    Title:       "2025 年度报告",
+    Creator:     []string{"张三"},
+    Description: "公司年度财务报告",
+    Subject:     []string{"财务", "报告"},
+    CreatorTool: "GoPDF2",
+    Producer:    "GoPDF2",
+    CreateDate:  time.Now(),
+    ModifyDate:  time.Now(),
+    PDFAPart:    1,
+    PDFAConformance: "B",
+})
+```
+
+### 增量保存
+
+仅保存修改过的对象，大文档更新更快：
+
+```go
+originalData, _ := os.ReadFile("input.pdf")
+pdf := gopdf.GoPdf{}
+pdf.OpenPDFFromBytes(originalData, nil)
+pdf.SetPage(1)
+pdf.SetXY(100, 100)
+pdf.Text("新增文字")
+
+result, _ := pdf.IncrementalSave(originalData, nil)
+os.WriteFile("output.pdf", result, 0644)
+```
+
+### 文档克隆
+
+深拷贝文档实例，独立修改互不影响：
+
+```go
+clone, _ := pdf.Clone()
+clone.SetPage(1)
+clone.SetXY(100, 100)
+clone.Text("仅在克隆中")
+clone.WritePdf("clone.pdf")
 ```
 
 ## API 参考

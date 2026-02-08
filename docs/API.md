@@ -94,7 +94,7 @@ type Transparency struct {
 
 ### Predefined Page Sizes
 
-`PageSizeA3`, `PageSizeA4`, `PageSizeA5`, `PageSizeLetter`, `PageSizeLegal`
+`PageSizeA0`–`PageSizeA10`, `PageSizeA3Landscape`–`PageSizeA10Landscape`, `PageSizeB0`–`PageSizeB10`, `PageSizeLetter`, `PageSizeLetterLandscape`, `PageSizeLegal`, `PageSizeLegalLandscape`, `PageSizeTabloid`, `PageSizeLedger`, `PageSizeStatement`, `PageSizeExecutive`, `PageSizeFolio`, `PageSizeQuarto`
 
 ### Unit Constants
 
@@ -439,3 +439,328 @@ type PageInfo struct {
     PageNumber int     // 1-based page number
 }
 ```
+
+---
+
+## Paper Size Lookup
+
+```go
+func PaperSize(name string) *Rect
+func PaperSizeNames() []string
+```
+
+Look up predefined paper sizes by name (case-insensitive). Supported names: `a0`–`a10`, `b0`–`b10`, `letter`, `legal`, `tabloid`, `ledger`, `statement`, `executive`, `folio`, `quarto`. Append `-l` for landscape (e.g. `a4-l`, `letter-l`). Returns a copy of the Rect; returns nil if name is not recognized.
+
+---
+
+## Page Rotation
+
+```go
+func (gp *GoPdf) SetPageRotation(pageNo int, angle int) error
+func (gp *GoPdf) GetPageRotation(pageNo int) (int, error)
+```
+
+Set or get the display rotation for a page. `angle` must be a multiple of 90 (0, 90, 180, 270). This sets the `/Rotate` entry in the page dictionary — it tells PDF viewers how to display the page but does not modify the page content.
+
+---
+
+## Page Reordering
+
+```go
+func (gp *GoPdf) SelectPages(pages []int) (*GoPdf, error)
+func SelectPagesFromFile(pdfPath string, pages []int, opt *OpenPDFOption) (*GoPdf, error)
+func SelectPagesFromBytes(pdfData []byte, pages []int, opt *OpenPDFOption) (*GoPdf, error)
+```
+
+Rearrange pages in a new document. Pages are 1-based and may be repeated. The current document is exported to bytes, then only the selected pages are re-imported in the specified order.
+
+---
+
+## Embedded Files
+
+```go
+func (gp *GoPdf) AddEmbeddedFile(ef EmbeddedFile) error
+```
+
+Attach a file to the PDF document. The file appears in the PDF viewer's attachment panel.
+
+### EmbeddedFile
+
+```go
+type EmbeddedFile struct {
+    Name        string    // Display name (required)
+    Content     []byte    // File content (required)
+    MimeType    string    // MIME type (e.g. "text/plain", "application/pdf")
+    Description string    // Optional description
+    ModDate     time.Time // Modification date (default: now)
+}
+```
+
+---
+
+## Geometry
+
+### RectFrom
+
+```go
+type RectFrom struct {
+    X, Y, W, H float64
+}
+
+func (r RectFrom) Contains(px, py float64) bool
+func (r RectFrom) ContainsRect(other RectFrom) bool
+func (r RectFrom) Intersects(other RectFrom) bool
+func (r RectFrom) Intersection(other RectFrom) RectFrom
+func (r RectFrom) Union(other RectFrom) RectFrom
+func (r RectFrom) IsEmpty() bool
+func (r RectFrom) Area() float64
+func (r RectFrom) Center() Point
+func (r RectFrom) Normalize() RectFrom
+```
+
+A positioned rectangle with geometric operations.
+
+### Matrix
+
+```go
+type Matrix struct {
+    A, B, C, D, E, F float64
+}
+
+func IdentityMatrix() Matrix
+func TranslateMatrix(tx, ty float64) Matrix
+func ScaleMatrix(sx, sy float64) Matrix
+func RotateMatrix(degrees float64) Matrix
+func (m Matrix) Multiply(other Matrix) Matrix
+func (m Matrix) TransformPoint(x, y float64) (float64, float64)
+func (m Matrix) IsIdentity() bool
+```
+
+2D affine transformation matrix. Transformation: `x' = a*x + c*y + e`, `y' = b*x + d*y + f`.
+
+### Distance
+
+```go
+func Distance(p1, p2 Point) float64
+```
+
+Euclidean distance between two points.
+
+---
+
+## Content Element CRUD
+
+### ContentElementType
+
+```go
+type ContentElementType int
+
+const (
+    ElementText             ContentElementType
+    ElementImage            ContentElementType
+    ElementLine             ContentElementType
+    ElementRectangle        ContentElementType
+    ElementOval             ContentElementType
+    ElementPolygon          ContentElementType
+    ElementCurve            ContentElementType
+    ElementImportedTemplate ContentElementType
+    ElementLineWidth        ContentElementType
+    ElementLineType         ContentElementType
+    // ... and more (ColorRGB, ColorCMYK, Rotate, etc.)
+    ElementUnknown          ContentElementType
+)
+
+func (t ContentElementType) String() string
+```
+
+### ContentElement
+
+```go
+type ContentElement struct {
+    Index    int                // 0-based position in the page's content cache
+    Type     ContentElementType // Element type
+    X, Y     float64           // Primary position
+    X2, Y2   float64           // Secondary position (lines, ovals)
+    Width    float64           // Width (rectangles, images)
+    Height   float64           // Height (rectangles, images)
+    Text     string            // Text content (text elements only)
+    FontSize float64           // Font size (text elements only)
+}
+```
+
+### Query Methods
+
+```go
+func (gp *GoPdf) GetPageElements(pageNo int) ([]ContentElement, error)
+func (gp *GoPdf) GetPageElementsByType(pageNo int, elemType ContentElementType) ([]ContentElement, error)
+func (gp *GoPdf) GetPageElementCount(pageNo int) (int, error)
+```
+
+### Delete Methods
+
+```go
+func (gp *GoPdf) DeleteElement(pageNo int, elementIndex int) error
+func (gp *GoPdf) DeleteElementsByType(pageNo int, elemType ContentElementType) (int, error)
+func (gp *GoPdf) DeleteElementsInRect(pageNo int, rx, ry, rw, rh float64) (int, error)
+func (gp *GoPdf) ClearPage(pageNo int) error
+```
+
+### Modify Methods
+
+```go
+func (gp *GoPdf) ModifyTextElement(pageNo int, elementIndex int, newText string) error
+func (gp *GoPdf) ModifyElementPosition(pageNo int, elementIndex int, x, y float64) error
+```
+
+### Insert Methods
+
+```go
+func (gp *GoPdf) InsertLineElement(pageNo int, x1, y1, x2, y2 float64) error
+func (gp *GoPdf) InsertRectElement(pageNo int, x, y, w, h float64, style string) error
+func (gp *GoPdf) InsertOvalElement(pageNo int, x1, y1, x2, y2 float64) error
+func (gp *GoPdf) InsertElementAt(pageNo int, elementIndex int, newElement ICacheContent) error
+func (gp *GoPdf) ReplaceElement(pageNo int, elementIndex int, newElement ICacheContent) error
+```
+
+---
+
+## PDF Version Control
+
+```go
+type PDFVersion int
+
+const (
+    PDFVersion14 PDFVersion = 14 // PDF 1.4
+    PDFVersion15 PDFVersion = 15 // PDF 1.5
+    PDFVersion16 PDFVersion = 16 // PDF 1.6
+    PDFVersion17 PDFVersion = 17 // PDF 1.7 (default)
+    PDFVersion20 PDFVersion = 20 // PDF 2.0
+)
+
+func (v PDFVersion) String() string  // "1.7"
+func (v PDFVersion) Header() string  // "%PDF-1.7"
+
+func (gp *GoPdf) SetPDFVersion(v PDFVersion)
+func (gp *GoPdf) GetPDFVersion() PDFVersion
+```
+
+---
+
+## Garbage Collection
+
+```go
+type GarbageCollectLevel int
+
+const (
+    GCNone    GarbageCollectLevel = 0 // No-op
+    GCCompact GarbageCollectLevel = 1 // Remove null objects, renumber
+    GCDedup   GarbageCollectLevel = 2 // Also deduplicate identical objects
+)
+
+func (gp *GoPdf) GarbageCollect(level GarbageCollectLevel) int
+func (gp *GoPdf) GetObjectCount() int
+func (gp *GoPdf) GetLiveObjectCount() int
+```
+
+`GarbageCollect` removes null/deleted objects left by `DeletePage` and other operations. Returns the number of objects removed.
+
+---
+
+## Page Labels
+
+```go
+type PageLabelStyle string
+
+const (
+    PageLabelDecimal    PageLabelStyle = "D" // 1, 2, 3, ...
+    PageLabelRomanUpper PageLabelStyle = "R" // I, II, III, ...
+    PageLabelRomanLower PageLabelStyle = "r" // i, ii, iii, ...
+    PageLabelAlphaUpper PageLabelStyle = "A" // A, B, C, ...
+    PageLabelAlphaLower PageLabelStyle = "a" // a, b, c, ...
+    PageLabelNone       PageLabelStyle = ""  // No numbering
+)
+
+type PageLabel struct {
+    PageIndex int            // 0-based page index where this range starts
+    Style     PageLabelStyle // Numbering style
+    Prefix    string         // Optional prefix (e.g. "Appendix ")
+    Start     int            // Starting number (default 1)
+}
+
+func (gp *GoPdf) SetPageLabels(labels []PageLabel)
+func (gp *GoPdf) GetPageLabels() []PageLabel
+```
+
+---
+
+## Object ID
+
+```go
+type ObjID int
+
+func (id ObjID) Index() int     // 0-based array index
+func (id ObjID) Ref() int       // 1-based PDF object reference
+func (id ObjID) RefStr() string // "5 0 R"
+func (id ObjID) IsValid() bool
+```
+
+Typed wrapper for PDF object identifiers, providing type safety over raw int indices.
+
+---
+
+## XMP Metadata
+
+```go
+type XMPMetadata struct {
+    // Dublin Core
+    Title       string
+    Creator     []string
+    Description string
+    Subject     []string
+    Rights      string
+    Language    string
+
+    // XMP Basic
+    CreatorTool string
+    CreateDate  time.Time
+    ModifyDate  time.Time
+
+    // PDF-specific
+    Producer string
+    Keywords string
+    Trapped  string // "True", "False", "Unknown"
+
+    // PDF/A conformance
+    PDFAConformance string // "A", "B", "U"
+    PDFAPart        int    // 1, 2, 3
+
+    // Custom properties
+    Custom map[string]string
+}
+
+func (gp *GoPdf) SetXMPMetadata(meta XMPMetadata)
+func (gp *GoPdf) GetXMPMetadata() *XMPMetadata
+```
+
+Embeds an XMP metadata stream in the PDF catalog. Supports Dublin Core, XMP Basic, PDF-specific, and PDF/A conformance properties.
+
+---
+
+## Incremental Save
+
+```go
+func (gp *GoPdf) IncrementalSave(originalData []byte, modifiedIndices []int) ([]byte, error)
+func (gp *GoPdf) WriteIncrementalPdf(pdfPath string, originalData []byte, modifiedIndices []int) error
+```
+
+Appends only modified objects to the original PDF data as an incremental update. If `modifiedIndices` is nil, all objects are written. This is significantly faster than a full rewrite for large documents.
+
+---
+
+## Document Cloning
+
+```go
+func (gp *GoPdf) Clone() (*GoPdf, error)
+```
+
+Creates a deep copy of the GoPdf instance by serializing and re-importing. The clone is fully independent — changes to one do not affect the other. Header/footer callbacks are not cloned.

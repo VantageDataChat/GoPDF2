@@ -94,7 +94,7 @@ type Transparency struct {
 
 ### 预定义页面尺寸
 
-`PageSizeA3`、`PageSizeA4`、`PageSizeA5`、`PageSizeLetter`、`PageSizeLegal`
+`PageSizeA0`–`PageSizeA10`、`PageSizeA3Landscape`–`PageSizeA10Landscape`、`PageSizeB0`–`PageSizeB10`、`PageSizeLetter`、`PageSizeLetterLandscape`、`PageSizeLegal`、`PageSizeLegalLandscape`、`PageSizeTabloid`、`PageSizeLedger`、`PageSizeStatement`、`PageSizeExecutive`、`PageSizeFolio`、`PageSizeQuarto`
 
 ### 单位常量
 
@@ -439,3 +439,328 @@ type PageInfo struct {
     PageNumber int     // 页码（从 1 开始）
 }
 ```
+
+---
+
+## 纸张尺寸查询
+
+```go
+func PaperSize(name string) *Rect
+func PaperSizeNames() []string
+```
+
+按名称查询预定义纸张尺寸（不区分大小写）。支持的名称：`a0`–`a10`、`b0`–`b10`、`letter`、`legal`、`tabloid`、`ledger`、`statement`、`executive`、`folio`、`quarto`。加 `-l` 后缀为横向（如 `a4-l`、`letter-l`）。返回 Rect 的副本；名称无法识别时返回 nil。
+
+---
+
+## 页面旋转
+
+```go
+func (gp *GoPdf) SetPageRotation(pageNo int, angle int) error
+func (gp *GoPdf) GetPageRotation(pageNo int) (int, error)
+```
+
+设置或获取页面的显示旋转角度。`angle` 必须是 90 的倍数（0、90、180、270）。此操作设置页面字典中的 `/Rotate` 条目，告诉 PDF 阅读器如何显示页面，但不修改页面内容。
+
+---
+
+## 页面重排
+
+```go
+func (gp *GoPdf) SelectPages(pages []int) (*GoPdf, error)
+func SelectPagesFromFile(pdfPath string, pages []int, opt *OpenPDFOption) (*GoPdf, error)
+func SelectPagesFromBytes(pdfData []byte, pages []int, opt *OpenPDFOption) (*GoPdf, error)
+```
+
+在新文档中重新排列页面。页码从 1 开始，可以重复。当前文档导出为字节后，仅按指定顺序重新导入选定的页面。
+
+---
+
+## 嵌入文件
+
+```go
+func (gp *GoPdf) AddEmbeddedFile(ef EmbeddedFile) error
+```
+
+将文件附加到 PDF 文档。文件会显示在 PDF 阅读器的附件面板中。
+
+### EmbeddedFile
+
+```go
+type EmbeddedFile struct {
+    Name        string    // 显示名称（必填）
+    Content     []byte    // 文件内容（必填）
+    MimeType    string    // MIME 类型（如 "text/plain"、"application/pdf"）
+    Description string    // 可选描述
+    ModDate     time.Time // 修改日期（默认：当前时间）
+}
+```
+
+---
+
+## 几何工具
+
+### RectFrom
+
+```go
+type RectFrom struct {
+    X, Y, W, H float64
+}
+
+func (r RectFrom) Contains(px, py float64) bool
+func (r RectFrom) ContainsRect(other RectFrom) bool
+func (r RectFrom) Intersects(other RectFrom) bool
+func (r RectFrom) Intersection(other RectFrom) RectFrom
+func (r RectFrom) Union(other RectFrom) RectFrom
+func (r RectFrom) IsEmpty() bool
+func (r RectFrom) Area() float64
+func (r RectFrom) Center() Point
+func (r RectFrom) Normalize() RectFrom
+```
+
+带位置的矩形，支持几何运算。
+
+### Matrix
+
+```go
+type Matrix struct {
+    A, B, C, D, E, F float64
+}
+
+func IdentityMatrix() Matrix
+func TranslateMatrix(tx, ty float64) Matrix
+func ScaleMatrix(sx, sy float64) Matrix
+func RotateMatrix(degrees float64) Matrix
+func (m Matrix) Multiply(other Matrix) Matrix
+func (m Matrix) TransformPoint(x, y float64) (float64, float64)
+func (m Matrix) IsIdentity() bool
+```
+
+2D 仿射变换矩阵。变换公式：`x' = a*x + c*y + e`，`y' = b*x + d*y + f`。
+
+### Distance
+
+```go
+func Distance(p1, p2 Point) float64
+```
+
+计算两点之间的欧几里得距离。
+
+---
+
+## 内容元素 CRUD
+
+### ContentElementType
+
+```go
+type ContentElementType int
+
+const (
+    ElementText             ContentElementType // 文本
+    ElementImage            ContentElementType // 图片
+    ElementLine             ContentElementType // 线条
+    ElementRectangle        ContentElementType // 矩形
+    ElementOval             ContentElementType // 椭圆
+    ElementPolygon          ContentElementType // 多边形
+    ElementCurve            ContentElementType // 贝塞尔曲线
+    ElementImportedTemplate ContentElementType // 导入的模板
+    ElementLineWidth        ContentElementType // 线宽设置
+    ElementLineType         ContentElementType // 线型设置
+    // ... 更多类型（ColorRGB、ColorCMYK、Rotate 等）
+    ElementUnknown          ContentElementType // 未知类型
+)
+
+func (t ContentElementType) String() string
+```
+
+### ContentElement
+
+```go
+type ContentElement struct {
+    Index    int                // 页面内容缓存中的 0 基索引
+    Type     ContentElementType // 元素类型
+    X, Y     float64           // 主要位置坐标
+    X2, Y2   float64           // 次要位置坐标（线条、椭圆）
+    Width    float64           // 宽度（矩形、图片）
+    Height   float64           // 高度（矩形、图片）
+    Text     string            // 文本内容（仅文本元素）
+    FontSize float64           // 字号（仅文本元素）
+}
+```
+
+### 查询方法
+
+```go
+func (gp *GoPdf) GetPageElements(pageNo int) ([]ContentElement, error)
+func (gp *GoPdf) GetPageElementsByType(pageNo int, elemType ContentElementType) ([]ContentElement, error)
+func (gp *GoPdf) GetPageElementCount(pageNo int) (int, error)
+```
+
+### 删除方法
+
+```go
+func (gp *GoPdf) DeleteElement(pageNo int, elementIndex int) error
+func (gp *GoPdf) DeleteElementsByType(pageNo int, elemType ContentElementType) (int, error)
+func (gp *GoPdf) DeleteElementsInRect(pageNo int, rx, ry, rw, rh float64) (int, error)
+func (gp *GoPdf) ClearPage(pageNo int) error
+```
+
+### 修改方法
+
+```go
+func (gp *GoPdf) ModifyTextElement(pageNo int, elementIndex int, newText string) error
+func (gp *GoPdf) ModifyElementPosition(pageNo int, elementIndex int, x, y float64) error
+```
+
+### 插入方法
+
+```go
+func (gp *GoPdf) InsertLineElement(pageNo int, x1, y1, x2, y2 float64) error
+func (gp *GoPdf) InsertRectElement(pageNo int, x, y, w, h float64, style string) error
+func (gp *GoPdf) InsertOvalElement(pageNo int, x1, y1, x2, y2 float64) error
+func (gp *GoPdf) InsertElementAt(pageNo int, elementIndex int, newElement ICacheContent) error
+func (gp *GoPdf) ReplaceElement(pageNo int, elementIndex int, newElement ICacheContent) error
+```
+
+---
+
+## PDF 版本控制
+
+```go
+type PDFVersion int
+
+const (
+    PDFVersion14 PDFVersion = 14 // PDF 1.4
+    PDFVersion15 PDFVersion = 15 // PDF 1.5
+    PDFVersion16 PDFVersion = 16 // PDF 1.6
+    PDFVersion17 PDFVersion = 17 // PDF 1.7（默认）
+    PDFVersion20 PDFVersion = 20 // PDF 2.0
+)
+
+func (v PDFVersion) String() string  // "1.7"
+func (v PDFVersion) Header() string  // "%PDF-1.7"
+
+func (gp *GoPdf) SetPDFVersion(v PDFVersion)
+func (gp *GoPdf) GetPDFVersion() PDFVersion
+```
+
+---
+
+## 垃圾回收
+
+```go
+type GarbageCollectLevel int
+
+const (
+    GCNone    GarbageCollectLevel = 0 // 不执行
+    GCCompact GarbageCollectLevel = 1 // 移除空对象，重新编号
+    GCDedup   GarbageCollectLevel = 2 // 额外去重相同对象
+)
+
+func (gp *GoPdf) GarbageCollect(level GarbageCollectLevel) int
+func (gp *GoPdf) GetObjectCount() int
+func (gp *GoPdf) GetLiveObjectCount() int
+```
+
+`GarbageCollect` 移除 `DeletePage` 等操作留下的空/已删除对象。返回移除的对象数量。
+
+---
+
+## 页面标签
+
+```go
+type PageLabelStyle string
+
+const (
+    PageLabelDecimal    PageLabelStyle = "D" // 1, 2, 3, ...
+    PageLabelRomanUpper PageLabelStyle = "R" // I, II, III, ...
+    PageLabelRomanLower PageLabelStyle = "r" // i, ii, iii, ...
+    PageLabelAlphaUpper PageLabelStyle = "A" // A, B, C, ...
+    PageLabelAlphaLower PageLabelStyle = "a" // a, b, c, ...
+    PageLabelNone       PageLabelStyle = ""  // 无编号
+)
+
+type PageLabel struct {
+    PageIndex int            // 此标签范围起始的 0 基页面索引
+    Style     PageLabelStyle // 编号样式
+    Prefix    string         // 可选前缀（如 "附录 "）
+    Start     int            // 起始编号（默认 1）
+}
+
+func (gp *GoPdf) SetPageLabels(labels []PageLabel)
+func (gp *GoPdf) GetPageLabels() []PageLabel
+```
+
+---
+
+## 对象 ID
+
+```go
+type ObjID int
+
+func (id ObjID) Index() int     // 0 基数组索引
+func (id ObjID) Ref() int       // 1 基 PDF 对象引用号
+func (id ObjID) RefStr() string // "5 0 R"
+func (id ObjID) IsValid() bool
+```
+
+PDF 对象标识符的类型化包装器，提供比原始 int 索引更安全的类型检查。
+
+---
+
+## XMP 元数据
+
+```go
+type XMPMetadata struct {
+    // Dublin Core
+    Title       string
+    Creator     []string
+    Description string
+    Subject     []string
+    Rights      string
+    Language    string
+
+    // XMP 基本属性
+    CreatorTool string
+    CreateDate  time.Time
+    ModifyDate  time.Time
+
+    // PDF 特定属性
+    Producer string
+    Keywords string
+    Trapped  string // "True"、"False"、"Unknown"
+
+    // PDF/A 合规
+    PDFAConformance string // "A"、"B"、"U"
+    PDFAPart        int    // 1、2、3
+
+    // 自定义属性
+    Custom map[string]string
+}
+
+func (gp *GoPdf) SetXMPMetadata(meta XMPMetadata)
+func (gp *GoPdf) GetXMPMetadata() *XMPMetadata
+```
+
+在 PDF 目录中嵌入 XMP 元数据流。支持 Dublin Core、XMP 基本属性、PDF 特定属性和 PDF/A 合规属性。
+
+---
+
+## 增量保存
+
+```go
+func (gp *GoPdf) IncrementalSave(originalData []byte, modifiedIndices []int) ([]byte, error)
+func (gp *GoPdf) WriteIncrementalPdf(pdfPath string, originalData []byte, modifiedIndices []int) error
+```
+
+将修改过的对象作为增量更新追加到原始 PDF 数据之后。如果 `modifiedIndices` 为 nil，则写入所有对象。对于大文档，这比完全重写快得多。
+
+---
+
+## 文档克隆
+
+```go
+func (gp *GoPdf) Clone() (*GoPdf, error)
+```
+
+通过序列化和重新导入创建 GoPdf 实例的深拷贝。克隆完全独立——对一个的修改不会影响另一个。页眉/页脚回调不会被克隆。

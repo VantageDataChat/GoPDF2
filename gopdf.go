@@ -103,6 +103,18 @@ type GoPdf struct {
 
 	//placeholder text
 	placeHolderTexts map[string]([]placeHolderTextInfo)
+
+	//embedded files
+	embeddedFiles []embeddedFileRef
+
+	//pdf version
+	pdfVersion PDFVersion
+
+	//page labels
+	pageLabels []PageLabel
+
+	//xmp metadata
+	xmpMetadata *XMPMetadata
 }
 
 type DrawableRectOptions struct {
@@ -1048,7 +1060,7 @@ func (gp *GoPdf) compilePdf(w io.Writer) (n int64, err error) {
 	}
 	max := len(gp.pdfObjs)
 	writer := newCountingWriter(w)
-	fmt.Fprint(writer, "%PDF-1.7\n%����\n\n")
+	fmt.Fprintf(writer, "%s\n%%\xe2\xe3\xcf\xd3\n\n", gp.GetPDFVersion().Header())
 	linelens := make([]int64, max)
 	i := 0
 
@@ -2243,6 +2255,29 @@ func (gp *GoPdf) prepare() {
 	if gp.outlines.Count() > 0 {
 		catalogObj := gp.pdfObjs[gp.indexOfCatalogObj].(*CatalogObj)
 		catalogObj.SetIndexObjOutlines(gp.indexOfOutlinesObj)
+	}
+
+	// Add Names dictionary for embedded files.
+	if len(gp.embeddedFiles) > 0 {
+		namesIdx := gp.addObj(namesObj{
+			embeddedFiles: gp.embeddedFiles,
+		})
+		catalogObj := gp.pdfObjs[gp.indexOfCatalogObj].(*CatalogObj)
+		catalogObj.SetIndexObjNames(namesIdx)
+	}
+
+	// Add PageLabels number tree.
+	if len(gp.pageLabels) > 0 {
+		plIdx := gp.addObj(pageLabelObj{labels: gp.pageLabels})
+		catalogObj := gp.pdfObjs[gp.indexOfCatalogObj].(*CatalogObj)
+		catalogObj.SetIndexObjPageLabels(plIdx)
+	}
+
+	// Add XMP Metadata stream.
+	if gp.xmpMetadata != nil {
+		metaIdx := gp.addObj(xmpMetadataObj{meta: gp.xmpMetadata})
+		catalogObj := gp.pdfObjs[gp.indexOfCatalogObj].(*CatalogObj)
+		catalogObj.SetIndexObjMetadata(metaIdx)
 	}
 
 	if gp.indexOfPagesObj != -1 {

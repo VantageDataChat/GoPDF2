@@ -59,11 +59,12 @@ func (gp *GoPdf) DeletePage(pageNo int) error {
 		}
 	}
 
-	// Nil out the objects (we can't remove them without breaking references,
-	// but we can exclude them from the pages Kids list).
-	gp.pdfObjs[pageIdx] = nil
+	// Replace with null placeholder objects (we can't remove them without
+	// breaking object numbering, but nullObj writes "null" safely instead
+	// of crashing on nil pointer dereference).
+	gp.pdfObjs[pageIdx] = nullObj{}
 	if contentIdx >= 0 {
-		gp.pdfObjs[contentIdx] = nil
+		gp.pdfObjs[contentIdx] = nullObj{}
 	}
 
 	// Update the pages object count.
