@@ -1,11 +1,10 @@
-﻿package gopdf
+package gopdf
 
 import (
 "bytes"
 "errors"
 "fmt"
 "io"
-"io/ioutil"
 "os"
 
 "github.com/phpdave11/gofpdi"
@@ -60,7 +59,7 @@ if err != nil {
 return err
 }
 defer f.Close()
-data, err := ioutil.ReadAll(f)
+data, err := io.ReadAll(f)
 if err != nil {
 return err
 }
@@ -84,7 +83,7 @@ if r := recover(); r != nil {
 retErr = fmt.Errorf("failed to parse PDF: %v", r)
 }
 }()
-data, err := ioutil.ReadAll(*rs)
+data, err := io.ReadAll(*rs)
 if err != nil {
 return err
 }

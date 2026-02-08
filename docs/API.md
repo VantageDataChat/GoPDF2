@@ -350,3 +350,92 @@ func (gp *GoPdf) AddTTFFontFromFontContainer(family string, container *FontConta
 ```
 
 Pre-parse fonts once and reuse across multiple `GoPdf` instances for better performance.
+
+---
+
+## Watermark
+
+```go
+func (gp *GoPdf) AddWatermarkText(opt WatermarkOption) error
+func (gp *GoPdf) AddWatermarkImage(imgPath string, opacity float64, imgW, imgH float64, angle float64) error
+func (gp *GoPdf) AddWatermarkTextAllPages(opt WatermarkOption) error
+func (gp *GoPdf) AddWatermarkImageAllPages(imgPath string, opacity float64, imgW, imgH float64, angle float64) error
+```
+
+### WatermarkOption
+
+```go
+type WatermarkOption struct {
+    Text           string    // Watermark text (required)
+    FontFamily     string    // Font family (required, must be pre-loaded)
+    FontSize       float64   // Font size in points (default 48)
+    Angle          float64   // Rotation angle in degrees (default 45)
+    Color          [3]uint8  // RGB color (default: light gray)
+    Opacity        float64   // 0.0–1.0 (default 0.3)
+    Repeat         bool      // Tile across the page
+    RepeatSpacingX float64   // Horizontal spacing for tiling (default 150)
+    RepeatSpacingY float64   // Vertical spacing for tiling (default 150)
+}
+```
+
+---
+
+## Annotations
+
+```go
+func (gp *GoPdf) AddAnnotation(opt AnnotationOption)
+func (gp *GoPdf) AddTextAnnotation(x, y float64, title, content string)
+func (gp *GoPdf) AddHighlightAnnotation(x, y, w, h float64, color [3]uint8)
+func (gp *GoPdf) AddFreeTextAnnotation(x, y, w, h float64, text string, fontSize float64)
+```
+
+### AnnotationOption
+
+```go
+type AnnotationOption struct {
+    Type         AnnotationType // AnnotText, AnnotHighlight, AnnotUnderline, AnnotStrikeOut, AnnotSquare, AnnotCircle, AnnotFreeText
+    X, Y, W, H  float64        // Annotation rectangle in document units
+    Title        string         // Author name (for sticky notes)
+    Content      string         // Annotation text content
+    Color        [3]uint8       // RGB color (default: yellow)
+    Opacity      float64        // 0.0–1.0 (default 1.0)
+    Open         bool           // Initially open popup (text annotations)
+    FontSize     float64        // Font size for FreeText (default 12)
+}
+```
+
+---
+
+## Page Manipulation
+
+```go
+func (gp *GoPdf) DeletePage(pageNo int) error
+func (gp *GoPdf) CopyPage(pageNo int) (int, error)
+func ExtractPages(pdfPath string, pages []int, opt *OpenPDFOption) (*GoPdf, error)
+func ExtractPagesFromBytes(pdfData []byte, pages []int, opt *OpenPDFOption) (*GoPdf, error)
+func MergePages(pdfPaths []string, opt *OpenPDFOption) (*GoPdf, error)
+func MergePagesFromBytes(pdfDataSlices [][]byte, opt *OpenPDFOption) (*GoPdf, error)
+```
+
+---
+
+## Page Inspection
+
+```go
+func (gp *GoPdf) GetPageSize(pageNo int) (w, h float64, err error)
+func (gp *GoPdf) GetAllPageSizes() []PageInfo
+func GetSourcePDFPageCount(pdfPath string) (int, error)
+func GetSourcePDFPageCountFromBytes(pdfData []byte) (int, error)
+func GetSourcePDFPageSizes(pdfPath string) (map[int]PageInfo, error)
+func GetSourcePDFPageSizesFromBytes(pdfData []byte) (map[int]PageInfo, error)
+```
+
+### PageInfo
+
+```go
+type PageInfo struct {
+    Width      float64 // Page width in points
+    Height     float64 // Page height in points
+    PageNumber int     // 1-based page number
+}
+```

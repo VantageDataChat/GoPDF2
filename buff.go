@@ -8,17 +8,24 @@ type Buff struct {
 
 // Write : write []byte to buffer
 func (b *Buff) Write(p []byte) (int, error) {
-	for len(b.datas) < b.position+len(p) {
-		b.datas = append(b.datas, 0)
+	needed := b.position + len(p)
+	if needed > len(b.datas) {
+		if needed > cap(b.datas) {
+			// grow with exponential strategy to avoid O(n²) behavior
+			newCap := cap(b.datas) * 2
+			if newCap < needed {
+				newCap = needed
+			}
+			newData := make([]byte, needed, newCap)
+			copy(newData, b.datas)
+			b.datas = newData
+		} else {
+			b.datas = b.datas[:needed]
+		}
 	}
-	i := 0
-	max := len(p)
-	for i < max {
-		b.datas[i+b.position] = p[i]
-		i++
-	}
-	b.position += i
-	return 0, nil
+	copy(b.datas[b.position:], p)
+	b.position += len(p)
+	return len(p), nil
 }
 
 // Len : len of buffer

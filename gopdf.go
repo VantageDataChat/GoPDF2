@@ -1092,7 +1092,10 @@ func (gp *GoPdf) GetBytesPdfReturnErr() ([]byte, error) {
 	return gp.buf.Bytes(), err
 }
 
-// GetBytesPdf : get bytes of pdf file
+// GetBytesPdf returns the PDF content as bytes.
+//
+// Deprecated: This method calls log.Fatalf on error, which terminates the
+// program. Use GetBytesPdfReturnErr instead.
 func (gp *GoPdf) GetBytesPdf() []byte {
 	b, err := gp.GetBytesPdfReturnErr()
 	if err != nil {

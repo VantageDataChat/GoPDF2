@@ -212,9 +212,33 @@ func (r *htmlRenderer) renderNode(node *htmlNode, state htmlRenderState) error {
 		}
 		return nil
 	case "a":
-		// render link text in blue
+		// render link text in blue with underline, then add PDF link annotation
 		newState.colorR, newState.colorG, newState.colorB = 0, 0, 255
 		newState.fontStyle |= Underline
+		href := node.Attrs["href"]
+
+		// record position before rendering link text
+		startX := r.cursorX
+		startY := r.cursorY
+		lh := r.lineHeight(newState)
+
+		if err := r.renderNodes(node.Children, newState); err != nil {
+			return err
+		}
+
+		// add clickable link annotation if href is present
+		if href != "" {
+			endX := r.cursorX
+			// convert to points for the annotation
+			ax := r.gp.UnitsToPoints(startX)
+			ay := r.gp.UnitsToPoints(startY)
+			aw := r.gp.UnitsToPoints(endX - startX)
+			ah := r.gp.UnitsToPoints(lh)
+			if aw > 0 {
+				r.gp.AddExternalLink(href, ax, ay, aw, ah)
+			}
+		}
+		return nil
 	case "img":
 		return r.renderImage(node, state)
 	case "ul", "ol":
@@ -253,12 +277,6 @@ func (r *htmlRenderer) renderNode(node *htmlNode, state htmlRenderState) error {
 	// render children with updated state
 	if err := r.renderNodes(node.Children, newState); err != nil {
 		return err
-	}
-
-	// add link annotation for <a> tags
-	if node.Tag == "a" {
-		// link annotation is added per-word in renderText when we detect the link
-		// For simplicity, we handle it at the text level
 	}
 
 	return nil

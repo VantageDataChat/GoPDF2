@@ -3,7 +3,6 @@ package gopdf
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -972,7 +971,7 @@ func TestAllFeatures_ImportPages(t *testing.T) {
 }
 
 func TestAllFeatures_ImportPageStream(t *testing.T) {
-	data, err := ioutil.ReadFile(resTestPDF)
+	data, err := os.ReadFile(resTestPDF)
 	if err != nil {
 		t.Skipf("test PDF not available: %v", err)
 	}
@@ -1030,7 +1029,7 @@ func TestAllFeatures_OpenPDF(t *testing.T) {
 	}
 
 	// OpenPDFFromBytes
-	data, _ := ioutil.ReadFile(resTestPDF)
+	data, _ := os.ReadFile(resTestPDF)
 	pdf2 := GoPdf{}
 	if err := pdf2.OpenPDFFromBytes(data, nil); err != nil {
 		t.Fatalf("OpenPDFFromBytes: %v", err)

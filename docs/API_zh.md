@@ -350,3 +350,92 @@ func (gp *GoPdf) AddTTFFontFromFontContainer(family string, container *FontConta
 ```
 
 预先解析字体并在多个 `GoPdf` 实例间复用，提升性能。
+
+---
+
+## 水印
+
+```go
+func (gp *GoPdf) AddWatermarkText(opt WatermarkOption) error
+func (gp *GoPdf) AddWatermarkImage(imgPath string, opacity float64, imgW, imgH float64, angle float64) error
+func (gp *GoPdf) AddWatermarkTextAllPages(opt WatermarkOption) error
+func (gp *GoPdf) AddWatermarkImageAllPages(imgPath string, opacity float64, imgW, imgH float64, angle float64) error
+```
+
+### WatermarkOption
+
+```go
+type WatermarkOption struct {
+    Text           string    // 水印文字（必填）
+    FontFamily     string    // 字体族（必填，需预先加载）
+    FontSize       float64   // 字号，单位磅（默认 48）
+    Angle          float64   // 旋转角度，单位度（默认 45）
+    Color          [3]uint8  // RGB 颜色（默认：浅灰色）
+    Opacity        float64   // 0.0–1.0（默认 0.3）
+    Repeat         bool      // 是否平铺
+    RepeatSpacingX float64   // 平铺水平间距（默认 150）
+    RepeatSpacingY float64   // 平铺垂直间距（默认 150）
+}
+```
+
+---
+
+## 注释
+
+```go
+func (gp *GoPdf) AddAnnotation(opt AnnotationOption)
+func (gp *GoPdf) AddTextAnnotation(x, y float64, title, content string)
+func (gp *GoPdf) AddHighlightAnnotation(x, y, w, h float64, color [3]uint8)
+func (gp *GoPdf) AddFreeTextAnnotation(x, y, w, h float64, text string, fontSize float64)
+```
+
+### AnnotationOption
+
+```go
+type AnnotationOption struct {
+    Type         AnnotationType // AnnotText, AnnotHighlight, AnnotUnderline, AnnotStrikeOut, AnnotSquare, AnnotCircle, AnnotFreeText
+    X, Y, W, H  float64        // 注释矩形区域（文档单位）
+    Title        string         // 作者名（便签注释）
+    Content      string         // 注释文本内容
+    Color        [3]uint8       // RGB 颜色（默认：黄色）
+    Opacity      float64        // 0.0–1.0（默认 1.0）
+    Open         bool           // 弹出窗口是否初始打开（文本注释）
+    FontSize     float64        // 自由文本字号（默认 12）
+}
+```
+
+---
+
+## 页面操作
+
+```go
+func (gp *GoPdf) DeletePage(pageNo int) error
+func (gp *GoPdf) CopyPage(pageNo int) (int, error)
+func ExtractPages(pdfPath string, pages []int, opt *OpenPDFOption) (*GoPdf, error)
+func ExtractPagesFromBytes(pdfData []byte, pages []int, opt *OpenPDFOption) (*GoPdf, error)
+func MergePages(pdfPaths []string, opt *OpenPDFOption) (*GoPdf, error)
+func MergePagesFromBytes(pdfDataSlices [][]byte, opt *OpenPDFOption) (*GoPdf, error)
+```
+
+---
+
+## 页面信息查询
+
+```go
+func (gp *GoPdf) GetPageSize(pageNo int) (w, h float64, err error)
+func (gp *GoPdf) GetAllPageSizes() []PageInfo
+func GetSourcePDFPageCount(pdfPath string) (int, error)
+func GetSourcePDFPageCountFromBytes(pdfData []byte) (int, error)
+func GetSourcePDFPageSizes(pdfPath string) (map[int]PageInfo, error)
+func GetSourcePDFPageSizesFromBytes(pdfData []byte) (map[int]PageInfo, error)
+```
+
+### PageInfo
+
+```go
+type PageInfo struct {
+    Width      float64 // 页面宽度（磅）
+    Height     float64 // 页面高度（磅）
+    PageNumber int     // 页码（从 1 开始）
+}
+```

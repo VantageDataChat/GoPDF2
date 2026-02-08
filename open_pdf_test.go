@@ -3,7 +3,7 @@ package gopdf
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -11,7 +11,7 @@ const testPDFPath = "./examples/outline_example/outline_demo.pdf"
 const testFontPath = "./test/res/LiberationSerif-Regular.ttf"
 
 func TestOpenPDFFromBytes(t *testing.T) {
-	data, err := ioutil.ReadFile(testPDFPath)
+	data, err := os.ReadFile(testPDFPath)
 	if err != nil {
 		t.Skipf("test PDF not available: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestOpenPDFFromBytes(t *testing.T) {
 }
 
 func TestOpenPDFFromStream(t *testing.T) {
-	data, err := ioutil.ReadFile(testPDFPath)
+	data, err := os.ReadFile(testPDFPath)
 	if err != nil {
 		t.Skipf("test PDF not available: %v", err)
 	}

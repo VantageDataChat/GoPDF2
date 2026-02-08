@@ -13,6 +13,10 @@ GoPDF2 是一个用 Go 编写的 PDF 生成库。基于 [gopdf](https://github.c
 - Unicode 子集字体嵌入（中文、日文、韩文等），自动子集化以最小化文件体积
 - **打开并修改已有 PDF** — 通过 `OpenPDF` 导入所有页面，在其上叠加新内容（文字、图片、HTML、绘图），然后保存
 - **HTML 转 PDF 渲染** — 通过 `InsertHTMLBox` 支持 `<b>`、`<i>`、`<u>`、`<p>`、`<h1>`–`<h6>`、`<font>`、`<span style>`、`<img>`、`<ul>`/`<ol>`、`<hr>`、`<center>`、`<a>`、`<blockquote>` 等标签
+- **水印** — 通过 `AddWatermarkText` / `AddWatermarkImage` 添加文字和图片水印，支持透明度、旋转、平铺
+- **PDF 注释** — 通过 `AddAnnotation` 添加便签、高亮、下划线、删除线、矩形、圆形、自由文本等注释
+- **页面操作** — 提取页面（`ExtractPages`）、合并 PDF（`MergePages`）、删除页面（`DeletePage`）、复制页面（`CopyPage`）
+- **页面信息查询** — 查询页面尺寸（`GetPageSize`、`GetAllPageSizes`）、源 PDF 页数（`GetSourcePDFPageCount`）
 - 绘制线条、椭圆、矩形（支持圆角）、曲线、多边形
 - 插入图片（JPEG、PNG），支持遮罩、裁剪、旋转、透明度
 - PDF 密码保护
@@ -294,6 +298,103 @@ table.DrawTable()
 pdf.PlaceHolderText("total", 30)
 // ... 创建完所有页面后 ...
 pdf.FillInPlaceHoldText("total", "5", gopdf.Left)
+```
+
+### 水印
+
+为 PDF 页面添加文字或图片水印：
+
+```go
+// 单个居中文字水印
+pdf.SetPage(1)
+pdf.AddWatermarkText(gopdf.WatermarkOption{
+    Text:       "机密",
+    FontFamily: "myfont",
+    FontSize:   48,
+    Opacity:    0.3,
+    Angle:      45,
+    Color:      [3]uint8{200, 200, 200},
+})
+
+// 平铺文字水印
+pdf.AddWatermarkText(gopdf.WatermarkOption{
+    Text:       "草稿",
+    FontFamily: "myfont",
+    Repeat:     true,
+})
+
+// 为所有页面添加文字水印
+pdf.AddWatermarkTextAllPages(gopdf.WatermarkOption{
+    Text:       "样本",
+    FontFamily: "myfont",
+})
+
+// 图片水印（居中，30% 透明度）
+pdf.AddWatermarkImage("logo.png", 0.3, 200, 200, 0)
+```
+
+### 注释
+
+添加 PDF 注释（便签、高亮、形状、自由文本）：
+
+```go
+// 便签注释
+pdf.AddTextAnnotation(100, 100, "审阅者", "请检查此部分。")
+
+// 高亮注释
+pdf.AddHighlightAnnotation(50, 50, 200, 20, [3]uint8{255, 255, 0})
+
+// 自由文本注释
+pdf.AddFreeTextAnnotation(100, 200, 250, 30, "重要备注", 14)
+
+// 完整控制
+pdf.AddAnnotation(gopdf.AnnotationOption{
+    Type:    gopdf.AnnotSquare,
+    X:       50,
+    Y:       300,
+    W:       100,
+    H:       50,
+    Color:   [3]uint8{0, 0, 255},
+    Content: "审阅区域",
+})
+```
+
+### 页面操作
+
+提取、合并、删除、复制页面：
+
+```go
+// 从 PDF 中提取指定页面
+newPdf, _ := gopdf.ExtractPages("input.pdf", []int{1, 3, 5}, nil)
+newPdf.WritePdf("pages_1_3_5.pdf")
+
+// 合并多个 PDF
+merged, _ := gopdf.MergePages([]string{"doc1.pdf", "doc2.pdf"}, nil)
+merged.WritePdf("merged.pdf")
+
+// 删除页面（从 1 开始）
+pdf.DeletePage(2)
+
+// 复制页面到末尾
+newPageNo, _ := pdf.CopyPage(1)
+```
+
+### 页面信息查询
+
+查询页面尺寸和元数据：
+
+```go
+// 获取指定页面的尺寸
+w, h, _ := pdf.GetPageSize(1)
+
+// 获取所有页面尺寸
+sizes := pdf.GetAllPageSizes()
+
+// 获取源 PDF 的页数（无需导入）
+count, _ := gopdf.GetSourcePDFPageCount("input.pdf")
+
+// 获取源 PDF 的页面尺寸
+pageSizes, _ := gopdf.GetSourcePDFPageSizes("input.pdf")
 ```
 
 ## API 参考

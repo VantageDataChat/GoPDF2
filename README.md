@@ -13,6 +13,10 @@ Requires Go 1.13+.
 - Unicode subfont embedding (Chinese, Japanese, Korean, etc.) with automatic subsetting to minimize file size
 - **Open and modify existing PDFs** via `OpenPDF` — import all pages, overlay new content (text, images, HTML, drawings), and save
 - **HTML-to-PDF rendering** via `InsertHTMLBox` — supports `<b>`, `<i>`, `<u>`, `<p>`, `<h1>`–`<h6>`, `<font>`, `<span style>`, `<img>`, `<ul>`/`<ol>`, `<hr>`, `<center>`, `<a>`, `<blockquote>`, and more
+- **Watermark** — text and image watermarks with opacity, rotation, and tiling via `AddWatermarkText` / `AddWatermarkImage`
+- **PDF annotations** — sticky notes, highlights, underlines, strikeouts, squares, circles, and free text via `AddAnnotation`
+- **Page manipulation** — extract pages (`ExtractPages`), merge PDFs (`MergePages`), delete pages (`DeletePage`), copy pages (`CopyPage`)
+- **Page inspection** — query page sizes (`GetPageSize`, `GetAllPageSizes`), source PDF page count (`GetSourcePDFPageCount`)
 - Draw lines, ovals, rectangles (with rounded corners), curves, polygons
 - Draw images (JPEG, PNG) with mask, crop, rotation, and transparency
 - Password protection
@@ -294,6 +298,103 @@ table.DrawTable()
 pdf.PlaceHolderText("total", 30)
 // ... after all pages created ...
 pdf.FillInPlaceHoldText("total", "5", gopdf.Left)
+```
+
+### Watermark
+
+Add text or image watermarks to PDF pages:
+
+```go
+// Single centered text watermark
+pdf.SetPage(1)
+pdf.AddWatermarkText(gopdf.WatermarkOption{
+    Text:       "CONFIDENTIAL",
+    FontFamily: "myfont",
+    FontSize:   48,
+    Opacity:    0.3,
+    Angle:      45,
+    Color:      [3]uint8{200, 200, 200},
+})
+
+// Tiled text watermark across the page
+pdf.AddWatermarkText(gopdf.WatermarkOption{
+    Text:       "DRAFT",
+    FontFamily: "myfont",
+    Repeat:     true,
+})
+
+// Apply text watermark to all pages
+pdf.AddWatermarkTextAllPages(gopdf.WatermarkOption{
+    Text:       "SAMPLE",
+    FontFamily: "myfont",
+})
+
+// Image watermark (centered, 30% opacity)
+pdf.AddWatermarkImage("logo.png", 0.3, 200, 200, 0)
+```
+
+### Annotations
+
+Add PDF annotations (sticky notes, highlights, shapes, free text):
+
+```go
+// Sticky note
+pdf.AddTextAnnotation(100, 100, "Reviewer", "Please check this section.")
+
+// Highlight
+pdf.AddHighlightAnnotation(50, 50, 200, 20, [3]uint8{255, 255, 0})
+
+// Free text directly on the page
+pdf.AddFreeTextAnnotation(100, 200, 250, 30, "Important note", 14)
+
+// Full control via AddAnnotation
+pdf.AddAnnotation(gopdf.AnnotationOption{
+    Type:    gopdf.AnnotSquare,
+    X:       50,
+    Y:       300,
+    W:       100,
+    H:       50,
+    Color:   [3]uint8{0, 0, 255},
+    Content: "Review area",
+})
+```
+
+### Page Manipulation
+
+Extract, merge, delete, and copy pages:
+
+```go
+// Extract specific pages from a PDF
+newPdf, _ := gopdf.ExtractPages("input.pdf", []int{1, 3, 5}, nil)
+newPdf.WritePdf("pages_1_3_5.pdf")
+
+// Merge multiple PDFs
+merged, _ := gopdf.MergePages([]string{"doc1.pdf", "doc2.pdf"}, nil)
+merged.WritePdf("merged.pdf")
+
+// Delete a page (1-based)
+pdf.DeletePage(2)
+
+// Copy a page to the end
+newPageNo, _ := pdf.CopyPage(1)
+```
+
+### Page Inspection
+
+Query page sizes and metadata:
+
+```go
+// Get page size of a specific page
+w, h, _ := pdf.GetPageSize(1)
+
+// Get all page sizes
+sizes := pdf.GetAllPageSizes()
+
+// Get page count from a source PDF without importing
+count, _ := gopdf.GetSourcePDFPageCount("input.pdf")
+
+// Get page sizes from a source PDF
+pageSizes, _ := gopdf.GetSourcePDFPageSizes("input.pdf")
 ```
 
 ## API Reference

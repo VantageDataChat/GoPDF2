@@ -145,6 +145,9 @@ func (i *ImageObj) SetImage(r io.Reader) error {
 }
 
 // GetRect get rect of img
+//
+// Deprecated: This method calls log.Fatalf on error, which terminates the
+// program. Use getRect() internally or handle the error appropriately.
 func (i *ImageObj) GetRect() *Rect {
 
 	rect, err := i.getRect()
