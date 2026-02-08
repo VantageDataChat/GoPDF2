@@ -51,10 +51,10 @@ This document provides a detailed comparison between GoPDF2 (pure Go) and PyMuPD
 |---------|--------|---------|
 | Add new page | ✅ `AddPage()` | ✅ `new_page()` |
 | Delete page | ✅ `DeletePage(n)` | ✅ `delete_page(n)` |
-| Batch delete pages | ❌ | ✅ `delete_pages()` |
+| Batch delete pages | ✅ `DeletePages()` | ✅ `delete_pages()` |
 | Copy page (reference) | ✅ `CopyPage(n)` | ✅ `copy_page()` |
 | Full copy page | ✅ `CopyPage(n)` | ✅ `fullcopy_page()` |
-| Move page | ❌ | ✅ `move_page()` |
+| Move page | ✅ `MovePage()` | ✅ `move_page()` |
 | Page reordering/selection | ✅ `SelectPages()` | ✅ `select()` |
 | Extract pages to new doc | ✅ `ExtractPages()` | ✅ `select()` + `save()` |
 | Merge multiple PDFs | ✅ `MergePages()` | ✅ `insert_pdf()` |
@@ -64,7 +64,7 @@ This document provides a detailed comparison between GoPDF2 (pure Go) and PyMuPD
 | Get page size | ✅ `GetPageSize()` | ✅ `page.rect` |
 | Get all page sizes | ✅ `GetAllPageSizes()` | Manual iteration |
 | Source PDF page count | ✅ `GetSourcePDFPageCount()` | ✅ `page_count` |
-| Page cropbox | ❌ | ✅ `page_cropbox()` |
+| Page cropbox | ✅ `SetPageCropBox()` | ✅ `page_cropbox()` |
 | Chapter navigation (EPUB) | ❌ | ✅ `chapter_page_count()` etc. |
 
 ### 3. Text & Fonts
@@ -95,8 +95,8 @@ This document provides a detailed comparison between GoPDF2 (pure Go) and PyMuPD
 | Ovals/Circles | ✅ `Oval()` | ✅ `draw_circle()` / `draw_oval()` |
 | Polygons | ✅ `Polygon()` | ✅ `draw_polygon()` |
 | Bezier curves | ✅ `Curve()` | ✅ `draw_bezier()` |
-| Polylines | ❌ | ✅ `draw_polyline()` |
-| Sectors | ❌ | ✅ `draw_sector()` |
+| Polylines | ✅ `Polyline()` | ✅ `draw_polyline()` |
+| Sectors | ✅ `Sector()` | ✅ `draw_sector()` |
 | Dash/line types | ✅ `SetLineType()` | ✅ |
 | Fill/stroke colors | ✅ | ✅ |
 | Rotation | ✅ `Rotate()` | ✅ |
@@ -114,10 +114,10 @@ This document provides a detailed comparison between GoPDF2 (pure Go) and PyMuPD
 | Image transparency | ✅ | ✅ |
 | Image extraction | ✅ `ExtractImagesFromPage()` | ✅ `extract_image()` |
 | Image info query | ✅ `ExtractImagesFromPage()` | ✅ `get_page_images()` |
-| Image deletion | ❌ | ✅ `delete_image()` |
-| Image recompression | ❌ | ✅ `rewrite_images()` |
-| SVG insertion | ❌ | ✅ |
-| Pixmap rendering | ❌ | ✅ `get_pixmap()` |
+| Image deletion | ✅ `DeleteImages()` | ✅ `delete_image()` |
+| Image recompression | ✅ `RecompressImages()` | ✅ `rewrite_images()` |
+| SVG insertion | ✅ `ImageSVG()` | ✅ |
+| Pixmap rendering | ✅ `RenderPageToImage()` | ✅ `get_pixmap()` |
 
 ### 6. Annotations
 
@@ -234,7 +234,7 @@ This document provides a detailed comparison between GoPDF2 (pure Go) and PyMuPD
 | Document statistics | ✅ `GetDocumentStats()` | Manual counting |
 | Linearization (Web optimize) | ❌ | ✅ `save(linear=True)` |
 | Content stream cleaning | ❌ | ✅ `save(clean=True)` |
-| Image recompression | ❌ | ✅ `rewrite_images()` |
+| Image recompression | ✅ `RecompressImages()` | ✅ `rewrite_images()` |
 | Colorspace conversion | ❌ | ✅ `recolor()` |
 
 ### 15. Content Element Operations
@@ -324,16 +324,15 @@ This document provides a detailed comparison between GoPDF2 (pure Go) and PyMuPD
 
 ## PyMuPDF Unique Strengths
 
-1. **Page Rendering** — Render PDF pages to images (Pixmap)
+1. **Full-fidelity Page Rendering** — High-quality PDF rendering via MuPDF engine
 2. **Text Search** — Search text on pages with position results
 3. **OCR** — Optical character recognition via Tesseract
 4. **Multi-format Support** — Open XPS, EPUB, HTML, SVG, images, etc.
 5. **Journalling** — Undo/redo operations
 6. **Redaction Annotations** — Securely and permanently remove sensitive content
 7. **Low-level PDF Operations** — Direct read/write of PDF objects, dict keys, streams
-8. **Image Recompression** — Batch recompression of embedded images
-9. **Linearization** — Generate web-optimized PDFs
-10. **More Annotation Types** — Ink, polyline, polygon, stamp, squiggly, caret, file attachment, redaction, etc.
+8. **Linearization** — Generate web-optimized PDFs
+9. **More Annotation Types** — Ink, polyline, polygon, stamp, squiggly, caret, file attachment, redaction, etc.
 
 ---
 
@@ -369,7 +368,7 @@ Features theoretically implementable in pure Go, with varying complexity:
 | ~~Text extraction~~ | ~~Very High~~ | ✅ Implemented — `ExtractTextFromPage()`, `ExtractPageText()` |
 | ~~Image extraction~~ | ~~Very High~~ | ✅ Implemented — `ExtractImagesFromPage()`, `ExtractImagesFromAllPages()` |
 | ~~Digital signatures~~ | ~~High~~ | ✅ Implemented — `SignPDF()`, `VerifySignature()` |
-| Page rendering | Not feasible | Requires full rendering engine |
+| Page rendering | Not feasible | ✅ Basic rendering implemented — `RenderPageToImage()` (lightweight; full-fidelity requires MuPDF) |
 | OCR | Not feasible | Requires Tesseract or similar |
 | Journalling (undo/redo) | High | Requires operation recording and replay |
 | Linearization | High | Requires PDF file structure reorganization |

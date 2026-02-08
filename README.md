@@ -15,8 +15,9 @@ Requires Go 1.13+.
 - **HTML-to-PDF rendering** via `InsertHTMLBox` — supports `<b>`, `<i>`, `<u>`, `<p>`, `<h1>`–`<h6>`, `<font>`, `<span style>`, `<img>`, `<ul>`/`<ol>`, `<hr>`, `<center>`, `<a>`, `<blockquote>`, and more
 - **Watermark** — text and image watermarks with opacity, rotation, and tiling via `AddWatermarkText` / `AddWatermarkImage`
 - **PDF annotations** — sticky notes, highlights, underlines, strikeouts, squares, circles, and free text via `AddAnnotation`
-- **Page manipulation** — extract pages (`ExtractPages`), merge PDFs (`MergePages`), delete pages (`DeletePage`), copy pages (`CopyPage`)
+- **Page manipulation** — extract pages (`ExtractPages`), merge PDFs (`MergePages`), delete pages (`DeletePage` / `DeletePages`), copy pages (`CopyPage`), move pages (`MovePage`)
 - **Page inspection** — query page sizes (`GetPageSize`, `GetAllPageSizes`), source PDF page count (`GetSourcePDFPageCount`)
+- **Page crop box** — define the visible area of a page via `SetPageCropBox` / `GetPageCropBox` / `ClearPageCropBox`
 - **Page rotation** — set display rotation for pages via `SetPageRotation` / `GetPageRotation`
 - **Page reordering** — rearrange pages via `SelectPages`, `SelectPagesFromFile`, `SelectPagesFromBytes`
 - **Embedded files** — attach files to PDF via `AddEmbeddedFile` (shown in viewer's attachment panel)
@@ -39,7 +40,7 @@ Requires Go 1.13+.
 - **Image extraction** — extract images with metadata from existing PDFs via `ExtractImagesFromPage` / `ExtractImagesFromAllPages`
 - **Form fields (AcroForm)** — add interactive form fields (text, checkbox, dropdown, radio, button, signature) via `AddFormField` / `AddTextField` / `AddCheckbox` / `AddDropdown`
 - **Digital signatures** — sign PDFs with PKCS#7 and verify signatures via `SignPDF` / `VerifySignature`
-- Draw lines, ovals, rectangles (with rounded corners), curves, polygons
+- Draw lines, ovals, rectangles (with rounded corners), curves, polygons, polylines, sectors
 - Draw images (JPEG, PNG) with mask, crop, rotation, and transparency
 - Password protection
 - Font kerning
@@ -238,6 +239,14 @@ pdf.Polygon([]gopdf.Point{{X: 10, Y: 30}, {X: 585, Y: 200}, {X: 585, Y: 250}}, "
 
 // Rounded rectangle
 pdf.Rectangle(196.6, 336.8, 398.3, 379.3, "DF", 3, 10)
+
+// Polyline (open path, not closed)
+pdf.SetStrokeColor(0, 0, 255)
+pdf.Polyline([]gopdf.Point{{X: 10, Y: 400}, {X: 100, Y: 350}, {X: 200, Y: 420}, {X: 300, Y: 380}})
+
+// Sector (pie/fan shape)
+pdf.SetFillColor(255, 128, 0)
+pdf.Sector(300, 500, 80, 0, 90, "FD")
 ```
 
 ### Rotation
@@ -397,6 +406,12 @@ merged.WritePdf("merged.pdf")
 // Delete a page (1-based)
 pdf.DeletePage(2)
 
+// Batch delete multiple pages
+pdf.DeletePages([]int{2, 4, 6})
+
+// Move a page to a new position
+pdf.MovePage(3, 1) // move page 3 to become page 1
+
 // Copy a page to the end
 newPageNo, _ := pdf.CopyPage(1)
 ```
@@ -445,6 +460,21 @@ pdf.SetPageRotation(1, 90)   // rotate page 1 by 90° clockwise
 pdf.SetPageRotation(2, 180)  // rotate page 2 by 180°
 
 angle, _ := pdf.GetPageRotation(1) // returns 90
+```
+
+### Page CropBox
+
+Define the visible area of a page (content outside is clipped but not removed):
+
+```go
+// Set crop box on page 1 — only the defined area is visible
+pdf.SetPageCropBox(1, gopdf.Box{Left: 50, Top: 50, Right: 545, Bottom: 792})
+
+// Get the current crop box
+box, _ := pdf.GetPageCropBox(1)
+
+// Remove crop box, restoring full MediaBox visibility
+pdf.ClearPageCropBox(1)
 ```
 
 ### Page Reordering

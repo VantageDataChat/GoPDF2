@@ -23,6 +23,10 @@ const (
 	ElementPolygon
 	// ElementCurve represents a Bézier curve element.
 	ElementCurve
+	// ElementPolyline represents a polyline (open path) element.
+	ElementPolyline
+	// ElementSector represents a sector (pie/fan shape) element.
+	ElementSector
 	// ElementImportedTemplate represents an imported PDF template.
 	ElementImportedTemplate
 	// ElementLineWidth represents a line width setting.
@@ -68,6 +72,10 @@ func (t ContentElementType) String() string {
 		return "Polygon"
 	case ElementCurve:
 		return "Curve"
+	case ElementPolyline:
+		return "Polyline"
+	case ElementSector:
+		return "Sector"
 	case ElementImportedTemplate:
 		return "ImportedTemplate"
 	case ElementLineWidth:
@@ -146,6 +154,10 @@ func classifyElement(c ICacheContent) ContentElementType {
 		return ElementPolygon
 	case *cacheContentCurve:
 		return ElementCurve
+	case *cacheContentPolyline:
+		return ElementPolyline
+	case *cacheContentSector:
+		return ElementSector
 	case *cacheContentImportedTemplate:
 		return ElementImportedTemplate
 	case *cacheContentLineWidth:
@@ -217,6 +229,15 @@ func buildElement(index int, c ICacheContent) ContentElement {
 		elem.Y = v.y0
 		elem.X2 = v.x3
 		elem.Y2 = v.y3
+	case *cacheContentPolyline:
+		if len(v.points) > 0 {
+			elem.X = v.points[0].X
+			elem.Y = v.points[0].Y
+		}
+	case *cacheContentSector:
+		elem.X = v.cx
+		elem.Y = v.cy
+		elem.Width = v.r
 	case *cacheContentImportedTemplate:
 		elem.X = v.tX
 		elem.Y = v.tY
@@ -443,6 +464,18 @@ func (gp *GoPdf) ModifyElementPosition(pageNo int, elementIndex int, x, y float6
 				v.points[i].Y += dy
 			}
 		}
+	case *cacheContentPolyline:
+		if len(v.points) > 0 {
+			dx := x - v.points[0].X
+			dy := y - v.points[0].Y
+			for i := range v.points {
+				v.points[i].X += dx
+				v.points[i].Y += dy
+			}
+		}
+	case *cacheContentSector:
+		v.cx = x
+		v.cy = y
 	case *cacheContentCurve:
 		dx := x - v.x0
 		dy := y - v.y0

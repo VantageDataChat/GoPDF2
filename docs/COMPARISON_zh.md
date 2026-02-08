@@ -51,10 +51,10 @@
 |------|--------|---------|
 | 添加新页面 | ✅ `AddPage()` | ✅ `new_page()` |
 | 删除页面 | ✅ `DeletePage(n)` | ✅ `delete_page(n)` |
-| 批量删除页面 | ❌ | ✅ `delete_pages()` |
+| 批量删除页面 | ✅ `DeletePages()` | ✅ `delete_pages()` |
 | 复制页面（引用） | ✅ `CopyPage(n)` | ✅ `copy_page()` |
 | 完整复制页面 | ✅ `CopyPage(n)` | ✅ `fullcopy_page()` |
-| 移动页面 | ❌ | ✅ `move_page()` |
+| 移动页面 | ✅ `MovePage()` | ✅ `move_page()` |
 | 页面重排/选择 | ✅ `SelectPages()` | ✅ `select()` |
 | 提取页面到新文档 | ✅ `ExtractPages()` | ✅ `select()` + `save()` |
 | 合并多个 PDF | ✅ `MergePages()` | ✅ `insert_pdf()` |
@@ -64,7 +64,7 @@
 | 获取页面尺寸 | ✅ `GetPageSize()` | ✅ `page.rect` |
 | 获取所有页面尺寸 | ✅ `GetAllPageSizes()` | 需遍历 |
 | 获取源 PDF 页数 | ✅ `GetSourcePDFPageCount()` | ✅ `page_count` |
-| 页面裁切框 | ❌ | ✅ `page_cropbox()` |
+| 页面裁切框 | ✅ `SetPageCropBox()` | ✅ `page_cropbox()` |
 | 章节导航 (EPUB) | ❌ | ✅ `chapter_page_count()` 等 |
 
 ### 3. 文本与字体
@@ -95,8 +95,8 @@
 | 椭圆/圆 | ✅ `Oval()` | ✅ `draw_circle()` / `draw_oval()` |
 | 多边形 | ✅ `Polygon()` | ✅ `draw_polygon()` |
 | 贝塞尔曲线 | ✅ `Curve()` | ✅ `draw_bezier()` |
-| 折线 | ❌ | ✅ `draw_polyline()` |
-| 扇形 | ❌ | ✅ `draw_sector()` |
+| 折线 | ✅ `Polyline()` | ✅ `draw_polyline()` |
+| 扇形 | ✅ `Sector()` | ✅ `draw_sector()` |
 | 虚线/线型 | ✅ `SetLineType()` | ✅ |
 | 填充色/描边色 | ✅ | ✅ |
 | 旋转 | ✅ `Rotate()` | ✅ |
@@ -114,10 +114,10 @@
 | 图片透明度 | ✅ | ✅ |
 | 图片提取 | ✅ `ExtractImagesFromPage()` | ✅ `extract_image()` |
 | 图片信息查询 | ✅ `ExtractImagesFromPage()` | ✅ `get_page_images()` |
-| 图片删除 | ❌ | ✅ `delete_image()` |
-| 图片重压缩 | ❌ | ✅ `rewrite_images()` |
-| SVG 插入 | ❌ | ✅ |
-| Pixmap 渲染 | ❌ | ✅ `get_pixmap()` |
+| 图片删除 | ✅ `DeleteImages()` | ✅ `delete_image()` |
+| 图片重压缩 | ✅ `RecompressImages()` | ✅ `rewrite_images()` |
+| SVG 插入 | ✅ `ImageSVG()` | ✅ |
+| Pixmap 渲染 | ✅ `RenderPageToImage()` | ✅ `get_pixmap()` |
 
 ### 6. 注释 (Annotations)
 
@@ -234,7 +234,7 @@
 | 文档统计 | ✅ `GetDocumentStats()` | 需手动统计 |
 | 线性化 (Web 优化) | ❌ | ✅ `save(linear=True)` |
 | 内容流清理 | ❌ | ✅ `save(clean=True)` |
-| 图片重压缩 | ❌ | ✅ `rewrite_images()` |
+| 图片重压缩 | ✅ `RecompressImages()` | ✅ `rewrite_images()` |
 | 颜色空间转换 | ❌ | ✅ `recolor()` |
 
 ### 15. 内容元素操作
@@ -324,16 +324,15 @@
 
 ## PyMuPDF 独有优势
 
-1. **页面渲染** — 可将 PDF 页面渲染为图片 (Pixmap)
+1. **高保真页面渲染** — 通过 MuPDF 引擎实现高质量 PDF 渲染
 2. **文本搜索** — 在页面中搜索文本并返回位置
 3. **OCR** — 结合 Tesseract 进行文字识别
 4. **多格式支持** — 可打开 XPS、EPUB、HTML、SVG、图片等格式
 5. **日志/撤销** — 操作可撤销/重做
 6. **涂改注释** — 安全地永久删除敏感内容
 7. **PDF 底层操作** — 直接读写 PDF 对象、字典键、流数据
-8. **图片重压缩** — 批量重压缩嵌入图片
-9. **线性化** — 生成 Web 优化的 PDF
-10. **更多注释类型** — 墨迹、折线、多边形、图章、波浪线、插入符、文件附件、涂改等
+8. **线性化** — 生成 Web 优化的 PDF
+9. **更多注释类型** — 墨迹、折线、多边形、图章、波浪线、插入符、文件附件、涂改等
 
 ---
 
@@ -369,7 +368,7 @@
 | ~~文本提取~~ | ~~极高~~ | ✅ 已实现 — `ExtractTextFromPage()`、`ExtractPageText()` |
 | ~~图片提取~~ | ~~极高~~ | ✅ 已实现 — `ExtractImagesFromPage()`、`ExtractImagesFromAllPages()` |
 | ~~数字签名~~ | ~~高~~ | ✅ 已实现 — `SignPDF()`、`VerifySignature()` |
-| 页面渲染 | 不可行 | 需要完整的渲染引擎 |
+| 页面渲染 | 不可行 | ✅ 基础渲染已实现 — `RenderPageToImage()`（轻量级；高保真渲染需要 MuPDF） |
 | OCR | 不可行 | 需要 Tesseract 或类似引擎 |
 | 日志/撤销 | 高 | 需要实现操作记录与回放 |
 | 线性化 | 高 | 需要重新组织 PDF 文件结构 |

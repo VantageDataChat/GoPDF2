@@ -15,8 +15,9 @@ GoPDF2 是一个用 Go 编写的 PDF 生成库。基于 [gopdf](https://github.c
 - **HTML 转 PDF 渲染** — 通过 `InsertHTMLBox` 支持 `<b>`、`<i>`、`<u>`、`<p>`、`<h1>`–`<h6>`、`<font>`、`<span style>`、`<img>`、`<ul>`/`<ol>`、`<hr>`、`<center>`、`<a>`、`<blockquote>` 等标签
 - **水印** — 通过 `AddWatermarkText` / `AddWatermarkImage` 添加文字和图片水印，支持透明度、旋转、平铺
 - **PDF 注释** — 通过 `AddAnnotation` 添加便签、高亮、下划线、删除线、矩形、圆形、自由文本等注释
-- **页面操作** — 提取页面（`ExtractPages`）、合并 PDF（`MergePages`）、删除页面（`DeletePage`）、复制页面（`CopyPage`）
+- **页面操作** — 提取页面（`ExtractPages`）、合并 PDF（`MergePages`）、删除页面（`DeletePage` / `DeletePages`）、复制页面（`CopyPage`）、移动页面（`MovePage`）
 - **页面信息查询** — 查询页面尺寸（`GetPageSize`、`GetAllPageSizes`）、源 PDF 页数（`GetSourcePDFPageCount`）
+- **页面裁切框** — 通过 `SetPageCropBox` / `GetPageCropBox` / `ClearPageCropBox` 定义页面可见区域
 - **页面旋转** — 通过 `SetPageRotation` / `GetPageRotation` 设置页面显示旋转角度
 - **页面重排** — 通过 `SelectPages`、`SelectPagesFromFile`、`SelectPagesFromBytes` 重新排列页面顺序
 - **嵌入文件** — 通过 `AddEmbeddedFile` 将文件附加到 PDF（在阅读器的附件面板中显示）
@@ -39,7 +40,7 @@ GoPDF2 是一个用 Go 编写的 PDF 生成库。基于 [gopdf](https://github.c
 - **图片提取** — 通过 `ExtractImagesFromPage` / `ExtractImagesFromAllPages` 从已有 PDF 中提取图片及元数据
 - **表单字段 (AcroForm)** — 通过 `AddFormField` / `AddTextField` / `AddCheckbox` / `AddDropdown` 添加交互式表单字段（文本、复选框、下拉框、单选、按钮、签名）
 - **数字签名** — 通过 `SignPDF` / `VerifySignature` 进行 PKCS#7 签名与验证
-- 绘制线条、椭圆、矩形（支持圆角）、曲线、多边形
+- 绘制线条、椭圆、矩形（支持圆角）、曲线、多边形、折线、扇形
 - 插入图片（JPEG、PNG），支持遮罩、裁剪、旋转、透明度
 - PDF 密码保护
 - 字体字距调整（Kerning）
@@ -238,6 +239,14 @@ pdf.Polygon([]gopdf.Point{{X: 10, Y: 30}, {X: 585, Y: 200}, {X: 585, Y: 250}}, "
 
 // 圆角矩形
 pdf.Rectangle(196.6, 336.8, 398.3, 379.3, "DF", 3, 10)
+
+// 折线（开放路径，不闭合）
+pdf.SetStrokeColor(0, 0, 255)
+pdf.Polyline([]gopdf.Point{{X: 10, Y: 400}, {X: 100, Y: 350}, {X: 200, Y: 420}, {X: 300, Y: 380}})
+
+// 扇形（饼形）
+pdf.SetFillColor(255, 128, 0)
+pdf.Sector(300, 500, 80, 0, 90, "FD")
 ```
 
 ### 旋转
@@ -397,6 +406,12 @@ merged.WritePdf("merged.pdf")
 // 删除页面（从 1 开始）
 pdf.DeletePage(2)
 
+// 批量删除多个页面
+pdf.DeletePages([]int{2, 4, 6})
+
+// 移动页面到新位置
+pdf.MovePage(3, 1) // 将第 3 页移动到第 1 页
+
 // 复制页面到末尾
 newPageNo, _ := pdf.CopyPage(1)
 ```
@@ -445,6 +460,21 @@ pdf.SetPageRotation(1, 90)   // 第 1 页顺时针旋转 90°
 pdf.SetPageRotation(2, 180)  // 第 2 页旋转 180°
 
 angle, _ := pdf.GetPageRotation(1) // 返回 90
+```
+
+### 页面裁切框
+
+定义页面的可见区域（区域外的内容被裁切但不会被删除）：
+
+```go
+// 设置第 1 页的裁切框 — 仅定义区域内的内容可见
+pdf.SetPageCropBox(1, gopdf.Box{Left: 50, Top: 50, Right: 545, Bottom: 792})
+
+// 获取当前裁切框
+box, _ := pdf.GetPageCropBox(1)
+
+// 移除裁切框，恢复完整 MediaBox 可见区域
+pdf.ClearPageCropBox(1)
 ```
 
 ### 页面重排

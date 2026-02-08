@@ -2036,6 +2036,68 @@ func (gp *GoPdf) Polygon(points []Point, style string) {
 	gp.getContent().AppendStreamPolygon(pointReals, style, opts)
 }
 
+// Polyline draws an open polyline (connected line segments, not closed).
+// Unlike Polygon, the path is not closed — only stroked.
+//
+// Usage:
+//
+//	pdf.SetStrokeColor(255, 0, 0)
+//	pdf.SetLineWidth(2)
+//	pdf.Polyline([]gopdf.Point{{X: 10, Y: 30}, {X: 100, Y: 200}, {X: 200, Y: 50}})
+func (gp *GoPdf) Polyline(points []Point) {
+	transparency, err := gp.getCachedTransparency(nil)
+	if err != nil {
+		transparency = nil
+	}
+
+	var opts = polylineOptions{}
+	if transparency != nil {
+		opts.extGStateIndexes = append(opts.extGStateIndexes, transparency.extGStateIndex)
+	}
+
+	var pointReals []Point
+	for _, p := range points {
+		x := p.X
+		y := p.Y
+		gp.UnitsToPointsVar(&x, &y)
+		pointReals = append(pointReals, Point{X: x, Y: y})
+	}
+	gp.getContent().AppendStreamPolyline(pointReals, opts)
+}
+
+// Sector draws a sector (pie/fan shape) defined by a center point, radius,
+// and start/end angles in degrees (counter-clockwise from the positive X axis).
+//   - cx, cy: center point
+//   - r: radius
+//   - startDeg: start angle in degrees
+//   - endDeg: end angle in degrees
+//   - style: Style of sector (draw and/or fill: D, F, DF, FD)
+//     D or empty string: draw (stroke). This is the default value.
+//     F: fill
+//     DF or FD: draw and fill
+//
+// Usage:
+//
+//	pdf.SetStrokeColor(0, 0, 0)
+//	pdf.SetFillColor(255, 0, 0)
+//	pdf.Sector(200, 300, 80, 0, 90, "FD")
+func (gp *GoPdf) Sector(cx, cy, r, startDeg, endDeg float64, style string) {
+	gp.UnitsToPointsVar(&cx, &cy, &r)
+
+	transparency, err := gp.getCachedTransparency(nil)
+	if err != nil {
+		transparency = nil
+	}
+
+	var opts = sectorOptions{}
+	if transparency != nil {
+		opts.extGStateIndexes = append(opts.extGStateIndexes, transparency.extGStateIndex)
+	}
+
+	style = strings.ToUpper(strings.TrimSpace(style))
+	gp.getContent().AppendStreamSector(cx, cy, r, startDeg, endDeg, style, opts)
+}
+
 // ClipPolygon sets a clipping path from polygon points.
 func (gp *GoPdf) ClipPolygon(points []Point) {
 	var pointReals []Point

@@ -216,6 +216,8 @@ func (gp *GoPdf) SetGrayStroke(grayScale float64)
 func (gp *GoPdf) Line(x1, y1, x2, y2 float64)
 func (gp *GoPdf) Oval(x1, y1, x2, y2 float64)
 func (gp *GoPdf) Polygon(points []Point, style string)
+func (gp *GoPdf) Polyline(points []Point)
+func (gp *GoPdf) Sector(cx, cy, r, startDeg, endDeg float64, style string)
 func (gp *GoPdf) Rectangle(x0, y0, x1, y1 float64, style string, radius float64, radiusPointNum int) error
 func (gp *GoPdf) RectFromUpperLeft(x, y, w, h float64)
 func (gp *GoPdf) RectFromUpperLeftWithStyle(x, y, w, h float64, style string)
@@ -223,6 +225,8 @@ func (gp *GoPdf) Curve(x0, y0, x1, y1, x2, y2, x3, y3 float64, style string)
 func (gp *GoPdf) SetLineWidth(width float64)
 func (gp *GoPdf) SetLineType(linetype string)
 ```
+
+`Polyline` draws an open path through a series of points (stroke only, path is not closed). `Sector` draws a pie/fan shape defined by center, radius, and start/end angles in degrees (counter-clockwise from positive X axis). Style: `"D"` (stroke), `"F"` (fill), `"DF"`/`"FD"` (both).
 
 ---
 
@@ -410,12 +414,18 @@ type AnnotationOption struct {
 
 ```go
 func (gp *GoPdf) DeletePage(pageNo int) error
+func (gp *GoPdf) DeletePages(pages []int) error
 func (gp *GoPdf) CopyPage(pageNo int) (int, error)
+func (gp *GoPdf) MovePage(from, to int) error
 func ExtractPages(pdfPath string, pages []int, opt *OpenPDFOption) (*GoPdf, error)
 func ExtractPagesFromBytes(pdfData []byte, pages []int, opt *OpenPDFOption) (*GoPdf, error)
 func MergePages(pdfPaths []string, opt *OpenPDFOption) (*GoPdf, error)
 func MergePagesFromBytes(pdfDataSlices [][]byte, opt *OpenPDFOption) (*GoPdf, error)
 ```
+
+`DeletePages` removes multiple pages in a single operation. Pages are 1-based; duplicates are ignored; pages are deleted in reverse order to maintain correct numbering. Cannot delete all pages.
+
+`MovePage` moves a page from one position to another by reordering via `SelectPages`.
 
 ---
 
@@ -461,6 +471,22 @@ func (gp *GoPdf) GetPageRotation(pageNo int) (int, error)
 ```
 
 Set or get the display rotation for a page. `angle` must be a multiple of 90 (0, 90, 180, 270). This sets the `/Rotate` entry in the page dictionary — it tells PDF viewers how to display the page but does not modify the page content.
+
+---
+
+## Page CropBox
+
+```go
+func (gp *GoPdf) SetPageCropBox(pageNo int, box Box) error
+func (gp *GoPdf) GetPageCropBox(pageNo int) (*Box, error)
+func (gp *GoPdf) ClearPageCropBox(pageNo int) error
+```
+
+Set, get, or remove the CropBox for a page. The CropBox defines the visible area of the page when displayed or printed. Content outside the CropBox is clipped (hidden) but not removed.
+
+`pageNo` is 1-based. Box coordinates are in document units (PDF coordinate system where (0,0) is bottom-left).
+
+`GetPageCropBox` returns nil if no CropBox is set. `ClearPageCropBox` removes the CropBox, restoring the full MediaBox as the visible area.
 
 ---
 
@@ -563,6 +589,8 @@ const (
     ElementOval             ContentElementType
     ElementPolygon          ContentElementType
     ElementCurve            ContentElementType
+    ElementPolyline         ContentElementType
+    ElementSector           ContentElementType
     ElementImportedTemplate ContentElementType
     ElementLineWidth        ContentElementType
     ElementLineType         ContentElementType

@@ -8,6 +8,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"fmt"
 	"io"
 	"math/big"
 	"os"
@@ -1957,5 +1958,349 @@ func TestAllFeatures_DigitalSignature(t *testing.T) {
 			t.Fatalf("rich content signature invalid: %v", results[0].Error)
 		}
 		os.WriteFile(resOutDir+"/all_sig_rich_content.pdf", buf.Bytes(), 0644)
+	})
+}
+
+// ============================================================
+// 32. Batch Delete Pages
+// ============================================================
+
+func TestAllFeatures_DeletePages(t *testing.T) {
+	ensureOutDir(t)
+
+	t.Run("Basic", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		for i := 1; i <= 5; i++ {
+			pdf.AddPage()
+			pdf.SetXY(50, 50)
+			pdf.Cell(nil, fmt.Sprintf("Page %d", i))
+		}
+
+		if err := pdf.DeletePages([]int{2, 4}); err != nil {
+			t.Fatalf("DeletePages: %v", err)
+		}
+		if n := pdf.GetNumberOfPages(); n != 3 {
+			t.Fatalf("expected 3 pages, got %d", n)
+		}
+	})
+
+	t.Run("Duplicates", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		for i := 1; i <= 4; i++ {
+			pdf.AddPage()
+			pdf.SetXY(50, 50)
+			pdf.Cell(nil, fmt.Sprintf("Page %d", i))
+		}
+		// Duplicate page numbers should be deduplicated
+		if err := pdf.DeletePages([]int{2, 2, 3, 3}); err != nil {
+			t.Fatalf("DeletePages with duplicates: %v", err)
+		}
+		if n := pdf.GetNumberOfPages(); n != 2 {
+			t.Fatalf("expected 2 pages, got %d", n)
+		}
+	})
+
+	t.Run("SinglePage", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		for i := 1; i <= 3; i++ {
+			pdf.AddPage()
+			pdf.SetXY(50, 50)
+			pdf.Cell(nil, fmt.Sprintf("Page %d", i))
+		}
+		if err := pdf.DeletePages([]int{1}); err != nil {
+			t.Fatalf("DeletePages single: %v", err)
+		}
+		if n := pdf.GetNumberOfPages(); n != 2 {
+			t.Fatalf("expected 2 pages, got %d", n)
+		}
+	})
+
+	t.Run("EmptyList", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+		pdf.Cell(nil, "content")
+		if err := pdf.DeletePages([]int{}); err != nil {
+			t.Fatalf("DeletePages empty: %v", err)
+		}
+		if n := pdf.GetNumberOfPages(); n != 1 {
+			t.Fatalf("expected 1 page, got %d", n)
+		}
+	})
+
+	t.Run("OutOfRange", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+		pdf.Cell(nil, "p1")
+		pdf.AddPage()
+		pdf.Cell(nil, "p2")
+		if err := pdf.DeletePages([]int{1, 5}); err == nil {
+			t.Fatal("expected error for out-of-range page")
+		}
+	})
+
+	t.Run("CannotDeleteAll", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+		pdf.Cell(nil, "p1")
+		pdf.AddPage()
+		pdf.Cell(nil, "p2")
+		if err := pdf.DeletePages([]int{1, 2}); err == nil {
+			t.Fatal("expected error when deleting all pages")
+		}
+	})
+
+	t.Run("WriteAfterDelete", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		for i := 1; i <= 4; i++ {
+			pdf.AddPage()
+			pdf.SetXY(50, 50)
+			pdf.Cell(nil, fmt.Sprintf("Page %d of 4", i))
+		}
+		pdf.DeletePages([]int{2, 3})
+
+		var buf bytes.Buffer
+		if err := pdf.Write(&buf); err != nil {
+			t.Fatalf("Write after DeletePages: %v", err)
+		}
+		if !bytes.HasPrefix(buf.Bytes(), []byte("%PDF-")) {
+			t.Fatal("output is not valid PDF")
+		}
+	})
+}
+
+// ============================================================
+// 33. Move Page
+// ============================================================
+
+func TestAllFeatures_MovePage(t *testing.T) {
+	ensureOutDir(t)
+
+	t.Run("MoveForward", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		for i := 1; i <= 4; i++ {
+			pdf.AddPage()
+			pdf.SetXY(50, 50)
+			pdf.Cell(nil, fmt.Sprintf("Original Page %d", i))
+		}
+
+		// Move page 1 to position 3
+		if err := pdf.MovePage(1, 3); err != nil {
+			t.Fatalf("MovePage forward: %v", err)
+		}
+		if n := pdf.GetNumberOfPages(); n != 4 {
+			t.Fatalf("expected 4 pages, got %d", n)
+		}
+		if err := pdf.WritePdf(resOutDir + "/all_movepage_forward.pdf"); err != nil {
+			t.Fatalf("WritePdf: %v", err)
+		}
+	})
+
+	t.Run("MoveBackward", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		for i := 1; i <= 4; i++ {
+			pdf.AddPage()
+			pdf.SetXY(50, 50)
+			pdf.Cell(nil, fmt.Sprintf("Original Page %d", i))
+		}
+
+		// Move page 4 to position 1
+		if err := pdf.MovePage(4, 1); err != nil {
+			t.Fatalf("MovePage backward: %v", err)
+		}
+		if n := pdf.GetNumberOfPages(); n != 4 {
+			t.Fatalf("expected 4 pages, got %d", n)
+		}
+	})
+
+	t.Run("SamePosition", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+		pdf.AddPage()
+
+		// No-op
+		if err := pdf.MovePage(1, 1); err != nil {
+			t.Fatalf("MovePage same: %v", err)
+		}
+	})
+
+	t.Run("OutOfRange", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+		pdf.AddPage()
+
+		if err := pdf.MovePage(0, 1); err == nil {
+			t.Fatal("expected error for from=0")
+		}
+		if err := pdf.MovePage(1, 5); err == nil {
+			t.Fatal("expected error for to=5")
+		}
+		if err := pdf.MovePage(3, 1); err == nil {
+			t.Fatal("expected error for from=3 (out of range)")
+		}
+	})
+
+	t.Run("NoPages", func(t *testing.T) {
+		pdf := &GoPdf{}
+		pdf.Start(Config{PageSize: *PageSizeA4})
+		if err := pdf.MovePage(1, 2); err == nil {
+			t.Fatal("expected error for empty document")
+		}
+	})
+
+	t.Run("MoveLastToFirst", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		for i := 1; i <= 3; i++ {
+			pdf.AddPage()
+			pdf.SetXY(50, 50)
+			pdf.Cell(nil, fmt.Sprintf("Page %d", i))
+		}
+
+		if err := pdf.MovePage(3, 1); err != nil {
+			t.Fatalf("MovePage last to first: %v", err)
+		}
+
+		var buf bytes.Buffer
+		if err := pdf.Write(&buf); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
+		if !bytes.HasPrefix(buf.Bytes(), []byte("%PDF-")) {
+			t.Fatal("output is not valid PDF")
+		}
+	})
+}
+
+// ============================================================
+// 34. Page CropBox
+// ============================================================
+
+func TestAllFeatures_PageCropBox(t *testing.T) {
+	ensureOutDir(t)
+
+	t.Run("SetAndGet", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+		pdf.SetXY(50, 50)
+		pdf.Cell(nil, "CropBox test page")
+
+		box := Box{Left: 50, Top: 50, Right: 545, Bottom: 792}
+		if err := pdf.SetPageCropBox(1, box); err != nil {
+			t.Fatalf("SetPageCropBox: %v", err)
+		}
+
+		got, err := pdf.GetPageCropBox(1)
+		if err != nil {
+			t.Fatalf("GetPageCropBox: %v", err)
+		}
+		if got == nil {
+			t.Fatal("expected non-nil CropBox")
+		}
+		if got.Left != 50 || got.Top != 50 || got.Right != 545 || got.Bottom != 792 {
+			t.Errorf("CropBox = %+v, want {50 50 545 792}", got)
+		}
+	})
+
+	t.Run("NoCropBox", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+
+		got, err := pdf.GetPageCropBox(1)
+		if err != nil {
+			t.Fatalf("GetPageCropBox: %v", err)
+		}
+		if got != nil {
+			t.Fatalf("expected nil CropBox, got %+v", got)
+		}
+	})
+
+	t.Run("ClearCropBox", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+
+		pdf.SetPageCropBox(1, Box{Left: 10, Top: 10, Right: 200, Bottom: 200})
+		if err := pdf.ClearPageCropBox(1); err != nil {
+			t.Fatalf("ClearPageCropBox: %v", err)
+		}
+
+		got, err := pdf.GetPageCropBox(1)
+		if err != nil {
+			t.Fatalf("GetPageCropBox after clear: %v", err)
+		}
+		if got != nil {
+			t.Fatal("expected nil CropBox after clear")
+		}
+	})
+
+	t.Run("OutOfRange", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+
+		if err := pdf.SetPageCropBox(0, Box{}); err == nil {
+			t.Fatal("expected error for page 0")
+		}
+		if err := pdf.SetPageCropBox(2, Box{}); err == nil {
+			t.Fatal("expected error for page 2")
+		}
+		if _, err := pdf.GetPageCropBox(5); err == nil {
+			t.Fatal("expected error for page 5")
+		}
+		if err := pdf.ClearPageCropBox(3); err == nil {
+			t.Fatal("expected error for page 3")
+		}
+	})
+
+	t.Run("MultiPageCropBox", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+		pdf.SetXY(50, 50)
+		pdf.Cell(nil, "Page 1 — full size")
+
+		pdf.AddPage()
+		pdf.SetXY(50, 50)
+		pdf.Cell(nil, "Page 2 — cropped")
+
+		pdf.AddPage()
+		pdf.SetXY(50, 50)
+		pdf.Cell(nil, "Page 3 — different crop")
+
+		// Crop page 2 to a smaller area
+		pdf.SetPageCropBox(2, Box{Left: 0, Top: 0, Right: 300, Bottom: 400})
+		// Crop page 3 to a different area
+		pdf.SetPageCropBox(3, Box{Left: 100, Top: 100, Right: 500, Bottom: 700})
+
+		if err := pdf.WritePdf(resOutDir + "/all_cropbox_multipage.pdf"); err != nil {
+			t.Fatalf("WritePdf: %v", err)
+		}
+	})
+
+	t.Run("CropBoxInOutput", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+		pdf.SetXY(50, 50)
+		pdf.Cell(nil, "CropBox output test")
+
+		pdf.SetPageCropBox(1, Box{Left: 72, Top: 72, Right: 540, Bottom: 720})
+
+		var buf bytes.Buffer
+		if err := pdf.Write(&buf); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
+		// Verify the CropBox appears in the PDF output
+		if !bytes.Contains(buf.Bytes(), []byte("/CropBox")) {
+			t.Fatal("PDF output does not contain /CropBox")
+		}
+	})
+
+	t.Run("GetReturnsCopy", func(t *testing.T) {
+		pdf := newPDFWithFont(t)
+		pdf.AddPage()
+
+		pdf.SetPageCropBox(1, Box{Left: 10, Top: 20, Right: 30, Bottom: 40})
+		got, _ := pdf.GetPageCropBox(1)
+		got.Left = 999 // mutate the returned copy
+
+		got2, _ := pdf.GetPageCropBox(1)
+		if got2.Left != 10 {
+			t.Fatal("GetPageCropBox should return a copy, not a reference")
+		}
 	})
 }

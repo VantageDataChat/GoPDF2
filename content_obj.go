@@ -422,6 +422,29 @@ func (c *ContentObj) AppendStreamPolygon(points []Point, style string, opts poly
 	c.listCache.append(&cache)
 }
 
+// AppendStreamPolyline appends a polyline (open path, stroke only).
+func (c *ContentObj) AppendStreamPolyline(points []Point, opts polylineOptions) {
+	var cache cacheContentPolyline
+	cache.points = points
+	cache.pageHeight = c.getRoot().curr.pageSize.H
+	cache.opts = opts
+	c.listCache.append(&cache)
+}
+
+// AppendStreamSector appends a sector (pie/fan shape).
+func (c *ContentObj) AppendStreamSector(cx, cy, r, startDeg, endDeg float64, style string, opts sectorOptions) {
+	var cache cacheContentSector
+	cache.pageHeight = c.getRoot().curr.pageSize.H
+	cache.cx = cx
+	cache.cy = cy
+	cache.r = r
+	cache.startDeg = startDeg
+	cache.endDeg = endDeg
+	cache.style = style
+	cache.opts = opts
+	c.listCache.append(&cache)
+}
+
 // AppendStreamClipPolygon sets a clipping path from polygon points.
 func (c *ContentObj) AppendStreamClipPolygon(points []Point) {
 	var cache cacheContentClipPolygon

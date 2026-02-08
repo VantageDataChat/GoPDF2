@@ -216,6 +216,8 @@ func (gp *GoPdf) SetGrayStroke(grayScale float64)
 func (gp *GoPdf) Line(x1, y1, x2, y2 float64)
 func (gp *GoPdf) Oval(x1, y1, x2, y2 float64)
 func (gp *GoPdf) Polygon(points []Point, style string)
+func (gp *GoPdf) Polyline(points []Point)
+func (gp *GoPdf) Sector(cx, cy, r, startDeg, endDeg float64, style string)
 func (gp *GoPdf) Rectangle(x0, y0, x1, y1 float64, style string, radius float64, radiusPointNum int) error
 func (gp *GoPdf) RectFromUpperLeft(x, y, w, h float64)
 func (gp *GoPdf) RectFromUpperLeftWithStyle(x, y, w, h float64, style string)
@@ -223,6 +225,8 @@ func (gp *GoPdf) Curve(x0, y0, x1, y1, x2, y2, x3, y3 float64, style string)
 func (gp *GoPdf) SetLineWidth(width float64)
 func (gp *GoPdf) SetLineType(linetype string)
 ```
+
+`Polyline` 绘制一条开放折线（仅描边，路径不闭合）。`Sector` 绘制扇形（饼形），由圆心、半径、起始/结束角度（度，从正 X 轴逆时针）定义。style 参数：`"D"`（描边）、`"F"`（填充）、`"DF"`/`"FD"`（描边+填充）。
 
 ---
 
@@ -410,12 +414,18 @@ type AnnotationOption struct {
 
 ```go
 func (gp *GoPdf) DeletePage(pageNo int) error
+func (gp *GoPdf) DeletePages(pages []int) error
 func (gp *GoPdf) CopyPage(pageNo int) (int, error)
+func (gp *GoPdf) MovePage(from, to int) error
 func ExtractPages(pdfPath string, pages []int, opt *OpenPDFOption) (*GoPdf, error)
 func ExtractPagesFromBytes(pdfData []byte, pages []int, opt *OpenPDFOption) (*GoPdf, error)
 func MergePages(pdfPaths []string, opt *OpenPDFOption) (*GoPdf, error)
 func MergePagesFromBytes(pdfDataSlices [][]byte, opt *OpenPDFOption) (*GoPdf, error)
 ```
+
+`DeletePages` 在单次操作中删除多个页面。页码从 1 开始；重复页码会被忽略；按倒序删除以保持正确编号。不能删除所有页面。
+
+`MovePage` 通过 `SelectPages` 重排将页面从一个位置移动到另一个位置。
 
 ---
 
@@ -461,6 +471,22 @@ func (gp *GoPdf) GetPageRotation(pageNo int) (int, error)
 ```
 
 设置或获取页面的显示旋转角度。`angle` 必须是 90 的倍数（0、90、180、270）。此操作设置页面字典中的 `/Rotate` 条目，告诉 PDF 阅读器如何显示页面，但不修改页面内容。
+
+---
+
+## 页面裁切框
+
+```go
+func (gp *GoPdf) SetPageCropBox(pageNo int, box Box) error
+func (gp *GoPdf) GetPageCropBox(pageNo int) (*Box, error)
+func (gp *GoPdf) ClearPageCropBox(pageNo int) error
+```
+
+设置、获取或移除页面的 CropBox。CropBox 定义页面在显示或打印时的可见区域。CropBox 之外的内容会被裁切（隐藏）但不会被删除。
+
+`pageNo` 从 1 开始。Box 坐标使用文档单位（PDF 坐标系中 (0,0) 为左下角）。
+
+`GetPageCropBox` 在未设置 CropBox 时返回 nil。`ClearPageCropBox` 移除 CropBox，恢复完整 MediaBox 作为可见区域。
 
 ---
 
@@ -563,6 +589,8 @@ const (
     ElementOval             ContentElementType // 椭圆
     ElementPolygon          ContentElementType // 多边形
     ElementCurve            ContentElementType // 贝塞尔曲线
+    ElementPolyline         ContentElementType // 折线
+    ElementSector           ContentElementType // 扇形
     ElementImportedTemplate ContentElementType // 导入的模板
     ElementLineWidth        ContentElementType // 线宽设置
     ElementLineType         ContentElementType // 线型设置
