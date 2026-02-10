@@ -1,6 +1,7 @@
 ﻿# GoPDF2
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/VantageDataChat/GoPDF2.svg)](https://pkg.go.dev/github.com/VantageDataChat/GoPDF2)
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
 
 **[English](README.md) | [中文](README_zh.md)**
 
@@ -715,6 +716,10 @@ See [docs/API.md](docs/API.md) (English) or [docs/API_zh.md](docs/API_zh.md) (�
 ## GoPDF2 vs PyMuPDF
 
 See [docs/COMPARISON.md](docs/COMPARISON.md) (English) or [docs/COMPARISON_zh.md](docs/COMPARISON_zh.md) (中文) for a detailed feature comparison.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 ## License
 

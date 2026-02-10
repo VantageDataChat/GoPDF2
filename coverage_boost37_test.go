@@ -1,4 +1,4 @@
-package gopdf
+给程序库添加版本号1.0package gopdf
 
 import (
 	"bytes"
