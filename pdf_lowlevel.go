@@ -3,7 +3,6 @@ package gopdf
 import (
 	"bytes"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 )
@@ -179,8 +178,7 @@ func CopyObject(pdfData []byte, objNum int) ([]byte, int, error) {
 	}
 
 	// Find the highest object number.
-	re := regexp.MustCompile(`(\d+) 0 obj`)
-	matches := re.FindAllSubmatch(pdfData, -1)
+	matches := reObjHeader.FindAllSubmatch(pdfData, -1)
 	maxObj := 0
 	for _, m := range matches {
 		n, _ := strconv.Atoi(string(m[1]))

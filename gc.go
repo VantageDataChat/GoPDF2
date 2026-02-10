@@ -58,64 +58,7 @@ func (gp *GoPdf) GarbageCollect(level GarbageCollectLevel) int {
 
 	// Phase 2: Update internal index references.
 	gp.pdfObjs = liveObjs
-
-	// Update catalog index.
-	if newIdx, ok := oldToNew[gp.indexOfCatalogObj]; ok {
-		gp.indexOfCatalogObj = newIdx
-	}
-
-	// Update pages index.
-	if newIdx, ok := oldToNew[gp.indexOfPagesObj]; ok {
-		gp.indexOfPagesObj = newIdx
-	}
-
-	// Update first page index.
-	if gp.indexOfFirstPageObj >= 0 {
-		if newIdx, ok := oldToNew[gp.indexOfFirstPageObj]; ok {
-			gp.indexOfFirstPageObj = newIdx
-		}
-	}
-
-	// Update current page index.
-	if gp.curr.IndexOfPageObj >= 0 {
-		if newIdx, ok := oldToNew[gp.curr.IndexOfPageObj]; ok {
-			gp.curr.IndexOfPageObj = newIdx
-		}
-	}
-
-	// Update content index.
-	if gp.indexOfContent >= 0 {
-		if newIdx, ok := oldToNew[gp.indexOfContent]; ok {
-			gp.indexOfContent = newIdx
-		}
-	}
-
-	// Update procset index.
-	if newIdx, ok := oldToNew[gp.indexOfProcSet]; ok {
-		gp.indexOfProcSet = newIdx
-	}
-
-	// Update outlines index.
-	if gp.indexOfOutlinesObj >= 0 {
-		if newIdx, ok := oldToNew[gp.indexOfOutlinesObj]; ok {
-			gp.indexOfOutlinesObj = newIdx
-		}
-	}
-
-	// Update encoding font indices.
-	for i, idx := range gp.indexEncodingObjFonts {
-		if newIdx, ok := oldToNew[idx]; ok {
-			gp.indexEncodingObjFonts[i] = newIdx
-		}
-	}
-
-	// Update page count.
-	gp.numOfPagesObj = 0
-	for _, obj := range gp.pdfObjs {
-		if _, ok := obj.(*PageObj); ok {
-			gp.numOfPagesObj++
-		}
-	}
+	gp.reindexAfterCompact(oldToNew)
 
 	// Phase 3: Deduplication (GCDedup only).
 	if level >= GCDedup {

@@ -26,6 +26,12 @@ type decryptContext struct {
 	r             int // /R value
 }
 
+// Pre-compiled regexes for PDF decryption.
+var (
+	reEncryptRef       = regexp.MustCompile(`/Encrypt\s+(\d+)\s+\d+\s+R`)
+	reEncryptRefRemove = regexp.MustCompile(`/Encrypt\s+\d+\s+\d+\s+R\s*\n?`)
+)
+
 // detectEncryption checks if the PDF data contains an /Encrypt reference
 // in the trailer and returns the encryption object number, or 0 if not encrypted.
 func detectEncryption(data []byte) int {
@@ -35,8 +41,7 @@ func detectEncryption(data []byte) int {
 		return 0
 	}
 	trailer := string(data[trailerIdx:])
-	re := regexp.MustCompile(`/Encrypt\s+(\d+)\s+\d+\s+R`)
-	m := re.FindStringSubmatch(trailer)
+	m := reEncryptRef.FindStringSubmatch(trailer)
 	if m == nil {
 		return 0
 	}
@@ -352,19 +357,35 @@ func decryptPDF(data []byte, dc *decryptContext) []byte {
 
 // removeEncryptFromTrailer removes the /Encrypt entry from the PDF trailer.
 func removeEncryptFromTrailer(data []byte) []byte {
-	re := regexp.MustCompile(`/Encrypt\s+\d+\s+\d+\s+R\s*\n?`)
-	return re.ReplaceAll(data, nil)
+	return reEncryptRefRemove.ReplaceAll(data, nil)
 }
 
 // extractSignedIntValue extracts a (possibly negative) integer value for a given key from a PDF dictionary.
+// Uses string search instead of regex for performance.
 func extractSignedIntValue(dict, key string) int {
-	re := regexp.MustCompile(regexp.QuoteMeta(key) + `\s+(-?\d+)`)
-	m := re.FindStringSubmatch(dict)
-	if m == nil {
+	idx := strings.Index(dict, key)
+	if idx < 0 {
 		return 0
 	}
-	v, _ := strconv.Atoi(m[1])
-	return v
+	rest := dict[idx+len(key):]
+	// Skip whitespace
+	i := 0
+	for i < len(rest) && (rest[i] == ' ' || rest[i] == '\t' || rest[i] == '\r' || rest[i] == '\n') {
+		i++
+	}
+	// Read optional minus sign and digits
+	start := i
+	if i < len(rest) && rest[i] == '-' {
+		i++
+	}
+	for i < len(rest) && rest[i] >= '0' && rest[i] <= '9' {
+		i++
+	}
+	if i > start {
+		v, _ := strconv.Atoi(rest[start:i])
+		return v
+	}
+	return 0
 }
 
 // extractHexOrLiteralString extracts a string value (hex or literal) for a key.

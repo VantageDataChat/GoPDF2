@@ -59,8 +59,6 @@ func (gp *GoPdf) IncrementalSave(originalData []byte, modifiedIndices []int) ([]
 		buf.WriteByte('\n')
 	}
 
-	startOffset := int64(buf.Len())
-
 	// Write modified objects and record their offsets.
 	xrefEntries := make(map[int]int64) // objIndex -> byte offset
 
@@ -76,7 +74,7 @@ func (gp *GoPdf) IncrementalSave(originalData []byte, modifiedIndices []int) ([]
 			continue
 		}
 
-		xrefEntries[idx] = startOffset + int64(buf.Len()) - startOffset
+		xrefEntries[idx] = int64(buf.Len())
 		objID := idx + 1
 		fmt.Fprintf(&buf, "%d 0 obj\n", objID)
 		obj.write(&buf, objID)
@@ -95,7 +93,7 @@ func (gp *GoPdf) IncrementalSave(originalData []byte, modifiedIndices []int) ([]
 		}
 		objID := idx + 1
 		fmt.Fprintf(&buf, "%d 1\n", objID)
-		fmt.Fprintf(&buf, "%010d 00000 n \n", startOffset+offset)
+		fmt.Fprintf(&buf, "%010d 00000 n \n", offset)
 	}
 
 	// Write trailer.

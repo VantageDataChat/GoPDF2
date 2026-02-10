@@ -7,6 +7,12 @@ import (
 	"strings"
 )
 
+// Pre-compiled regexes for image extraction.
+var (
+	reFilterName  = regexp.MustCompile(`/Filter\s+/(\w+)`)
+	reFilterArray = regexp.MustCompile(`/Filter\s*\[\s*/(\w+)`)
+)
+
 // ============================================================
 // Image extraction from existing PDF files
 // ============================================================
@@ -163,26 +169,39 @@ func extractPageImages(parser *rawPDFParser, page rawPDFPage, placements []image
 	return images
 }
 
+// extractIntValue extracts an integer value for a given key from a dict string.
+// Uses string search instead of regex for performance.
 func extractIntValue(dict, key string) int {
-	re := regexp.MustCompile(regexp.QuoteMeta(key) + `\s+(\d+)`)
-	m := re.FindStringSubmatch(dict)
-	if m != nil {
-		v, _ := strconv.Atoi(m[1])
+	idx := strings.Index(dict, key)
+	if idx < 0 {
+		return 0
+	}
+	rest := dict[idx+len(key):]
+	// Skip whitespace
+	i := 0
+	for i < len(rest) && (rest[i] == ' ' || rest[i] == '\t' || rest[i] == '\r' || rest[i] == '\n') {
+		i++
+	}
+	// Read digits
+	start := i
+	for i < len(rest) && rest[i] >= '0' && rest[i] <= '9' {
+		i++
+	}
+	if i > start {
+		v, _ := strconv.Atoi(rest[start:i])
 		return v
 	}
 	return 0
 }
 
 func extractFilterValue(dict string) string {
-	// /Filter can be a name or array
-	re := regexp.MustCompile(`/Filter\s+/(\w+)`)
-	m := re.FindStringSubmatch(dict)
+	// /Filter can be a name or array — use pre-compiled regexes
+	m := reFilterName.FindStringSubmatch(dict)
 	if m != nil {
 		return m[1]
 	}
 	// array form
-	re2 := regexp.MustCompile(`/Filter\s*\[\s*/(\w+)`)
-	m2 := re2.FindStringSubmatch(dict)
+	m2 := reFilterArray.FindStringSubmatch(dict)
 	if m2 != nil {
 		return m2[1]
 	}

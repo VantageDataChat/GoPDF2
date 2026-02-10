@@ -135,6 +135,7 @@ func escapeMimeType(mime string) string {
 type embeddedFileRef struct {
 	name          string
 	fileSpecObjID int
+	streamObjIdx  int // 0-based index of the stream object
 }
 
 // AddEmbeddedFile attaches a file to the PDF document.
@@ -181,6 +182,7 @@ func (gp *GoPdf) AddEmbeddedFile(ef EmbeddedFile) error {
 	gp.embeddedFiles = append(gp.embeddedFiles, embeddedFileRef{
 		name:          ef.Name,
 		fileSpecObjID: fileSpecIdx + 1,
+		streamObjIdx:  streamIdx,
 	})
 
 	return nil
@@ -194,7 +196,7 @@ func (gp *GoPdf) AddEmbeddedFile(ef EmbeddedFile) error {
 func (gp *GoPdf) GetEmbeddedFile(name string) ([]byte, error) {
 	for _, ref := range gp.embeddedFiles {
 		if ref.name == name {
-			streamIdx := ref.fileSpecObjID - 2
+			streamIdx := ref.streamObjIdx
 			if streamIdx < 0 || streamIdx >= len(gp.pdfObjs) {
 				return nil, ErrEmbeddedFileNotFound
 			}
@@ -218,7 +220,7 @@ func (gp *GoPdf) DeleteEmbeddedFile(name string) error {
 	for i, ref := range gp.embeddedFiles {
 		if ref.name == name {
 			gp.embeddedFiles = append(gp.embeddedFiles[:i], gp.embeddedFiles[i+1:]...)
-			streamIdx := ref.fileSpecObjID - 2
+			streamIdx := ref.streamObjIdx
 			fileSpecIdx := ref.fileSpecObjID - 1
 			if streamIdx >= 0 && streamIdx < len(gp.pdfObjs) {
 				gp.pdfObjs[streamIdx] = nullObj{}
@@ -244,7 +246,7 @@ func (gp *GoPdf) DeleteEmbeddedFile(name string) error {
 func (gp *GoPdf) UpdateEmbeddedFile(name string, ef EmbeddedFile) error {
 	for _, ref := range gp.embeddedFiles {
 		if ref.name == name {
-			streamIdx := ref.fileSpecObjID - 2
+			streamIdx := ref.streamObjIdx
 			if streamIdx < 0 || streamIdx >= len(gp.pdfObjs) {
 				return ErrEmbeddedFileNotFound
 			}
@@ -282,7 +284,7 @@ func (gp *GoPdf) UpdateEmbeddedFile(name string, ef EmbeddedFile) error {
 func (gp *GoPdf) GetEmbeddedFileInfo(name string) (EmbeddedFileInfo, error) {
 	for _, ref := range gp.embeddedFiles {
 		if ref.name == name {
-			streamIdx := ref.fileSpecObjID - 2
+			streamIdx := ref.streamObjIdx
 			fileSpecIdx := ref.fileSpecObjID - 1
 			info := EmbeddedFileInfo{Name: name}
 			if streamIdx >= 0 && streamIdx < len(gp.pdfObjs) {

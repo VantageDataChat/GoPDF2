@@ -11,6 +11,9 @@ import (
 	"strings"
 )
 
+// Pre-compiled regex for xref rebuilding.
+var reObjHeaderLine = regexp.MustCompile(`(?m)^(\d+) 0 obj`)
+
 // RecompressOption configures how images are recompressed.
 type RecompressOption struct {
 	// Format is the target format: "jpeg" or "png". Default: "jpeg".
@@ -171,17 +174,24 @@ func downscaleImage(src image.Image, maxW, maxH int) image.Image {
 	}
 
 	dst := image.NewRGBA(image.Rect(0, 0, newW, newH))
+	// Use nearest-neighbor with direct pixel access for performance.
+	invScale := 1.0 / scale
 	for y := 0; y < newH; y++ {
+		srcY := int(float64(y) * invScale)
+		if srcY >= h {
+			srcY = h - 1
+		}
+		srcY += bounds.Min.Y
 		for x := 0; x < newW; x++ {
-			srcX := int(float64(x) / scale)
-			srcY := int(float64(y) / scale)
+			srcX := int(float64(x) * invScale)
 			if srcX >= w {
 				srcX = w - 1
 			}
-			if srcY >= h {
-				srcY = h - 1
-			}
-			dst.Set(x, y, src.At(bounds.Min.X+srcX, bounds.Min.Y+srcY))
+			r, g, b, a := src.At(bounds.Min.X+srcX, srcY).RGBA()
+			dst.Pix[(y*dst.Stride)+(x*4)+0] = uint8(r >> 8)
+			dst.Pix[(y*dst.Stride)+(x*4)+1] = uint8(g >> 8)
+			dst.Pix[(y*dst.Stride)+(x*4)+2] = uint8(b >> 8)
+			dst.Pix[(y*dst.Stride)+(x*4)+3] = uint8(a >> 8)
 		}
 	}
 	return dst
@@ -204,16 +214,16 @@ func replaceObjectStream(pdfData []byte, objNum int, newDict string, newStream [
 	}
 	endIdx += idx + len("endobj")
 
-	var replacement bytes.Buffer
-	fmt.Fprintf(&replacement, "%d 0 obj\n", objNum)
-	replacement.WriteString(newDict)
-	replacement.WriteString("\nstream\n")
-	replacement.Write(newStream)
-	replacement.WriteString("\nendstream\nendobj")
-
+	// Pre-allocate result buffer with estimated capacity.
+	estSize := len(pdfData) - (endIdx - idx) + len(objHeader) + len(newDict) + len(newStream) + 32
 	var result bytes.Buffer
+	result.Grow(estSize)
 	result.Write(pdfData[:idx])
-	result.Write(replacement.Bytes())
+	fmt.Fprintf(&result, "%d 0 obj\n", objNum)
+	result.WriteString(newDict)
+	result.WriteString("\nstream\n")
+	result.Write(newStream)
+	result.WriteString("\nendstream\nendobj")
 	result.Write(pdfData[endIdx:])
 
 	return result.Bytes()
@@ -229,8 +239,7 @@ func rebuildXref(pdfData []byte) []byte {
 	}
 
 	objOffsets := make(map[int]int)
-	re := regexp.MustCompile(`(?m)^(\d+) 0 obj`)
-	matches := re.FindAllSubmatchIndex(pdfData, -1)
+	matches := reObjHeaderLine.FindAllSubmatchIndex(pdfData, -1)
 	for _, m := range matches {
 		numStr := string(pdfData[m[2]:m[3]])
 		num, _ := strconv.Atoi(numStr)
@@ -249,6 +258,7 @@ func rebuildXref(pdfData []byte) []byte {
 	}
 
 	var xref bytes.Buffer
+	xref.Grow(20*(maxObj+1) + 32)
 	xref.WriteString("xref\n")
 	fmt.Fprintf(&xref, "0 %d\n", maxObj+1)
 	xref.WriteString("0000000000 65535 f \n")

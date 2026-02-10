@@ -10,6 +10,15 @@ import (
 	"strings"
 )
 
+// Pre-compiled regexes for PDF parser — avoids recompilation on every call.
+var (
+	reObjHeader = regexp.MustCompile(`(\d+)\s+0\s+obj\b`)
+	reRootRef   = regexp.MustCompile(`/Root\s+(\d+)\s+0\s+R`)
+	reObjRef    = regexp.MustCompile(`(\d+)\s+0\s+R`)
+	reNamedRef  = regexp.MustCompile(`/(\w+)\s+(\d+)\s+0\s+R`)
+	reMediaBox  = regexp.MustCompile(`/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]`)
+)
+
 // ============================================================
 // PDF raw parser — reads cross-ref table, objects, streams
 // from raw PDF bytes. Used for text/image extraction.
@@ -65,8 +74,7 @@ func (p *rawPDFParser) parse() error {
 
 // parseObjects finds all "N 0 obj ... endobj" blocks.
 func (p *rawPDFParser) parseObjects() {
-	re := regexp.MustCompile(`(\d+)\s+0\s+obj\b`)
-	matches := re.FindAllSubmatchIndex(p.data, -1)
+	matches := reObjHeader.FindAllSubmatchIndex(p.data, -1)
 	for _, m := range matches {
 		numStr := string(p.data[m[2]:m[3]])
 		num, _ := strconv.Atoi(numStr)
@@ -147,8 +155,7 @@ func zlibDecompress(data []byte) ([]byte, error) {
 
 func (p *rawPDFParser) findRoot() {
 	// Look for /Root N 0 R in trailer or xref stream
-	re := regexp.MustCompile(`/Root\s+(\d+)\s+0\s+R`)
-	m := re.FindSubmatch(p.data)
+	m := reRootRef.FindSubmatch(p.data)
 	if m != nil {
 		p.root, _ = strconv.Atoi(string(m[1]))
 		return
@@ -190,12 +197,21 @@ func (p *rawPDFParser) collectPages(objNum int) {
 }
 
 // extractRef extracts a single "N 0 R" reference for a given key.
+// Uses string search + pre-compiled regex to avoid per-call compilation.
 func extractRef(dict, key string) int {
-	re := regexp.MustCompile(regexp.QuoteMeta(key) + `\s+(\d+)\s+0\s+R`)
-	m := re.FindStringSubmatch(dict)
+	idx := strings.Index(dict, key)
+	if idx < 0 {
+		return 0
+	}
+	rest := dict[idx+len(key):]
+	rest = strings.TrimLeft(rest, " \t\r\n")
+	m := reObjRef.FindStringSubmatch(rest)
 	if m != nil {
-		n, _ := strconv.Atoi(m[1])
-		return n
+		// Verify the match starts at the beginning (the ref follows the key directly)
+		if strings.HasPrefix(strings.TrimLeft(rest, " \t\r\n"), m[0]) {
+			n, _ := strconv.Atoi(m[1])
+			return n
+		}
 	}
 	return 0
 }
@@ -217,8 +233,7 @@ func extractRefArray(dict, key string) []int {
 		return nil
 	}
 	arr := rest[start+1 : start+end]
-	re := regexp.MustCompile(`(\d+)\s+0\s+R`)
-	matches := re.FindAllStringSubmatch(arr, -1)
+	matches := reObjRef.FindAllStringSubmatch(arr, -1)
 	var refs []int
 	for _, m := range matches {
 		n, _ := strconv.Atoi(m[1])
@@ -228,8 +243,7 @@ func extractRefArray(dict, key string) []int {
 }
 
 func extractMediaBox(dict string) [4]float64 {
-	re := regexp.MustCompile(`/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]`)
-	m := re.FindStringSubmatch(dict)
+	m := reMediaBox.FindStringSubmatch(dict)
 	if m == nil {
 		return [4]float64{0, 0, 612, 792} // default letter
 	}
@@ -291,21 +305,18 @@ func (p *rawPDFParser) extractNamedRefs(dict, key string, out map[string]int) {
 	if rest[0] == '<' && len(rest) > 1 && rest[1] == '<' {
 		// inline dict
 		inner := extractDict([]byte(rest))
-		re := regexp.MustCompile(`/(\w+)\s+(\d+)\s+0\s+R`)
-		matches := re.FindAllStringSubmatch(inner, -1)
+		matches := reNamedRef.FindAllStringSubmatch(inner, -1)
 		for _, m := range matches {
 			n, _ := strconv.Atoi(m[2])
 			out["/"+m[1]] = n
 		}
 	} else {
 		// reference to another object
-		re := regexp.MustCompile(`(\d+)\s+0\s+R`)
-		m := re.FindStringSubmatch(rest)
+		m := reObjRef.FindStringSubmatch(rest)
 		if m != nil {
 			n, _ := strconv.Atoi(m[1])
 			if obj, ok := p.objects[n]; ok {
-				re2 := regexp.MustCompile(`/(\w+)\s+(\d+)\s+0\s+R`)
-				matches := re2.FindAllStringSubmatch(obj.dict, -1)
+				matches := reNamedRef.FindAllStringSubmatch(obj.dict, -1)
 				for _, mm := range matches {
 					nn, _ := strconv.Atoi(mm[2])
 					out["/"+mm[1]] = nn

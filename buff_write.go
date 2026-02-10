@@ -4,45 +4,32 @@ import "io"
 
 // WriteUInt32  writes a 32-bit unsigned integer value to w io.Writer
 func WriteUInt32(w io.Writer, v uint) error {
-	a := byte(v >> 24)
-	b := byte(v >> 16)
-	c := byte(v >> 8)
-	d := byte(v)
-	_, err := w.Write([]byte{a, b, c, d})
-	if err != nil {
-		return err
-	}
-	return nil
+	var buf [4]byte
+	buf[0] = byte(v >> 24)
+	buf[1] = byte(v >> 16)
+	buf[2] = byte(v >> 8)
+	buf[3] = byte(v)
+	_, err := w.Write(buf[:])
+	return err
 }
 
 // WriteUInt16 writes a 16-bit unsigned integer value to w io.Writer
 func WriteUInt16(w io.Writer, v uint) error {
-
-	a := byte(v >> 8)
-	b := byte(v)
-	_, err := w.Write([]byte{a, b})
-	if err != nil {
-		return err
-	}
-	return nil
+	var buf [2]byte
+	buf[0] = byte(v >> 8)
+	buf[1] = byte(v)
+	_, err := w.Write(buf[:])
+	return err
 }
 
 // WriteTag writes string value to w io.Writer
 func WriteTag(w io.Writer, tag string) error {
-	b := []byte(tag)
-	_, err := w.Write(b)
-	if err != nil {
-		return err
-	}
-	return nil
+	_, err := io.WriteString(w, tag)
+	return err
 }
 
 // WriteBytes writes []byte value to w io.Writer
 func WriteBytes(w io.Writer, data []byte, offset int, count int) error {
-
 	_, err := w.Write(data[offset : offset+count])
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }

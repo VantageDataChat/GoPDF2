@@ -10,6 +10,13 @@ import (
 	"unicode/utf16"
 )
 
+// Pre-compiled regexes for text extraction — avoids recompilation per call.
+var (
+	reExtractHexPairs = regexp.MustCompile(`<([0-9a-fA-F]+)>`)
+	reBfChar          = regexp.MustCompile(`(?s)beginbfchar\s*(.*?)\s*endbfchar`)
+	reBfRange         = regexp.MustCompile(`(?s)beginbfrange\s*(.*?)\s*endbfrange`)
+)
+
 // ============================================================
 // Text extraction from existing PDF files
 // ============================================================
@@ -98,7 +105,7 @@ type fontInfo struct {
 }
 
 func buildFontMap(parser *rawPDFParser, page rawPDFPage) map[string]*fontInfo {
-	fonts := make(map[string]*fontInfo)
+	fonts := make(map[string]*fontInfo, len(page.resources.fonts))
 	for name, objNum := range page.resources.fonts {
 		fi := &fontInfo{name: name}
 		obj, ok := parser.objects[objNum]
@@ -122,23 +129,40 @@ func buildFontMap(parser *rawPDFParser, page rawPDFPage) map[string]*fontInfo {
 }
 
 // extractName extracts a /Name value from a dict string.
+// Uses string search instead of regex for performance.
 func extractName(dict, key string) string {
-	re := regexp.MustCompile(regexp.QuoteMeta(key) + `\s+/(\S+)`)
-	m := re.FindStringSubmatch(dict)
-	if m != nil {
-		return m[1]
+	idx := strings.Index(dict, key)
+	if idx < 0 {
+		return ""
+	}
+	rest := dict[idx+len(key):]
+	// Skip whitespace
+	i := 0
+	for i < len(rest) && (rest[i] == ' ' || rest[i] == '\t' || rest[i] == '\r' || rest[i] == '\n') {
+		i++
+	}
+	if i >= len(rest) || rest[i] != '/' {
+		return ""
+	}
+	i++ // skip '/'
+	start := i
+	for i < len(rest) && rest[i] != ' ' && rest[i] != '\t' && rest[i] != '\r' &&
+		rest[i] != '\n' && rest[i] != '/' && rest[i] != '>' && rest[i] != '[' {
+		i++
+	}
+	if i > start {
+		return rest[start:i]
 	}
 	return ""
 }
 
 // parseCMap parses a ToUnicode CMap stream to build a code->rune mapping.
 func parseCMap(data []byte) map[uint16]rune {
-	m := make(map[uint16]rune)
+	m := make(map[uint16]rune, 64)
 	s := string(data)
 
 	// Parse beginbfchar ... endbfchar sections
-	reChar := regexp.MustCompile(`(?s)beginbfchar\s*(.*?)\s*endbfchar`)
-	for _, match := range reChar.FindAllStringSubmatch(s, -1) {
+	for _, match := range reBfChar.FindAllStringSubmatch(s, -1) {
 		lines := strings.Split(strings.TrimSpace(match[1]), "\n")
 		for _, line := range lines {
 			line = strings.TrimSpace(line)
@@ -152,8 +176,7 @@ func parseCMap(data []byte) map[uint16]rune {
 	}
 
 	// Parse beginbfrange ... endbfrange sections
-	reRange := regexp.MustCompile(`(?s)beginbfrange\s*(.*?)\s*endbfrange`)
-	for _, match := range reRange.FindAllStringSubmatch(s, -1) {
+	for _, match := range reBfRange.FindAllStringSubmatch(s, -1) {
 		lines := strings.Split(strings.TrimSpace(match[1]), "\n")
 		for _, line := range lines {
 			line = strings.TrimSpace(line)
@@ -173,9 +196,8 @@ func parseCMap(data []byte) map[uint16]rune {
 }
 
 func extractHexPairs(line string) []string {
-	re := regexp.MustCompile(`<([0-9a-fA-F]+)>`)
-	matches := re.FindAllStringSubmatch(line, -1)
-	var result []string
+	matches := reExtractHexPairs.FindAllStringSubmatch(line, -1)
+	result := make([]string, 0, len(matches))
 	for _, m := range matches {
 		result = append(result, m[1])
 	}
@@ -190,7 +212,8 @@ func parseHex16(s string) uint16 {
 // parseTextOperators parses PDF content stream text operators.
 func parseTextOperators(stream []byte, fonts map[string]*fontInfo, mediaBox [4]float64) []ExtractedText {
 	tokens := tokenize(stream)
-	var results []ExtractedText
+	// Pre-allocate with estimated capacity based on stream size.
+	results := make([]ExtractedText, 0, len(stream)/100+16)
 
 	// Text state
 	var (
@@ -395,7 +418,8 @@ func parseTextOperators(stream []byte, fonts map[string]*fontInfo, mediaBox [4]f
 
 // tokenize splits a PDF content stream into tokens.
 func tokenize(data []byte) []string {
-	var tokens []string
+	// Pre-allocate with estimated capacity.
+	tokens := make([]string, 0, len(data)/4+16)
 	i := 0
 	n := len(data)
 	for i < n {
@@ -602,7 +626,7 @@ func decodeHexUTF16BE(hex string) string {
 		// fall back to latin
 		return decodeHexLatin(hex)
 	}
-	var codes []uint16
+	codes := make([]uint16, 0, len(hex)/4)
 	for i := 0; i+3 < len(hex); i += 4 {
 		codes = append(codes, parseHex16(hex[i:i+4]))
 	}
@@ -622,7 +646,7 @@ func decodeUTF16BE(data []byte) string {
 	if len(data)%2 != 0 {
 		data = append(data, 0)
 	}
-	var codes []uint16
+	codes := make([]uint16, 0, len(data)/2)
 	for i := 0; i+1 < len(data); i += 2 {
 		codes = append(codes, uint16(data[i])<<8|uint16(data[i+1]))
 	}

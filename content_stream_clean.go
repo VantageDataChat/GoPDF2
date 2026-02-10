@@ -8,6 +8,12 @@ import (
 	"strings"
 )
 
+// Pre-compiled regexes for content stream cleaning.
+var (
+	reMultiSpace = regexp.MustCompile(`\s+`)
+	reDictLength = regexp.MustCompile(`/Length\s+\d+`)
+)
+
 // CleanContentStreams optimizes all content streams in the given PDF data
 // by removing redundant operators, consolidating state changes, and
 // normalizing whitespace. Returns the cleaned PDF data.
@@ -154,10 +160,9 @@ func removeEmptyQBlocks(lines []string) []string {
 
 // normalizeWhitespace trims excess whitespace from each line.
 func normalizeWhitespace(lines []string) []string {
-	re := regexp.MustCompile(`\s+`)
 	result := make([]string, len(lines))
 	for i, line := range lines {
-		result[i] = re.ReplaceAllString(strings.TrimSpace(line), " ")
+		result[i] = reMultiSpace.ReplaceAllString(strings.TrimSpace(line), " ")
 	}
 	return result
 }
@@ -185,8 +190,7 @@ func extractOperator(line string) string {
 // buildCleanedDict updates the /Length in a dictionary and ensures /FlateDecode filter.
 func buildCleanedDict(origDict string, newLen int) string {
 	// Replace /Length value.
-	rLen := regexp.MustCompile(`/Length\s+\d+`)
-	dict := rLen.ReplaceAllString(origDict, fmt.Sprintf("/Length %d", newLen))
+	dict := reDictLength.ReplaceAllString(origDict, fmt.Sprintf("/Length %d", newLen))
 
 	// Ensure /Filter /FlateDecode is present.
 	if !strings.Contains(dict, "/FlateDecode") {
