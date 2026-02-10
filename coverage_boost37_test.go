@@ -2,12 +2,7 @@ package gopdf
 
 import (
 	"bytes"
-	"fmt"
-	"image"
-	"image/color"
-	"image/jpeg"
 	"os"
-	"strings"
 	"testing"
 )
 
@@ -27,11 +22,10 @@ func buildMinimalPDFWithImage37(t *testing.T) []byte {
 	pdf.SetXY(10, 10)
 	pdf.Text("Hello")
 	// Add a JPEG image
-	if err := pdf.AddPage(); err == nil {
-		imgPath := resJPEGPath
-		if _, err := os.Stat(imgPath); err == nil {
-			_ = pdf.Image(imgPath, 10, 10, nil)
-		}
+	pdf.AddPage()
+	imgPath := resJPEGPath
+	if _, err := os.Stat(imgPath); err == nil {
+		_ = pdf.Image(imgPath, 10, 10, nil)
 	}
 	var buf bytes.Buffer
 	pdf.Write(&buf)
@@ -102,4 +96,18 @@ func TestCov37_GetStream(t *testing.T) {
 func TestCov37_SetStream(t *testing.T) {
 	data := buildMinimalPDFWithImage37(t)
 	// Find an object with a stream
-	for i := 1; i <= 20; i+
+	for i := 1; i <= 20; i++ {
+		stream, err := GetStream(data, i)
+		if err == nil && len(stream) > 0 {
+			newData, err := SetStream(data, i, []byte("test stream"))
+			if err != nil {
+				t.Logf("SetStream on obj %d: %v", i, err)
+				continue
+			}
+			if len(newData) > 0 {
+				t.Logf("SetStream on obj %d succeeded", i)
+			}
+			break
+		}
+	}
+}

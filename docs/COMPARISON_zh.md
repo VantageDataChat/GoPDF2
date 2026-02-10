@@ -221,7 +221,7 @@
 | 密码保护 | ✅ `PDFProtectionConfig` | ✅ `SetProtection()` | ✅ `save(encryption=...)` |
 | 权限控制 | ✅ | ✅ | ✅ |
 | 打开加密 PDF | ✅ `OpenPDF(Password)` | ❌ | ✅ `authenticate()` |
-| 加密方法选择 | ✅ RC4 (V1/V2) | ✅ RC4 | ✅ 多种加密标准 |
+| 加密方法选择 | ✅ RC4 (V1/V2)、AES-128、AES-256 | ✅ RC4 | ✅ 多种加密标准 |
 | 数字签名 | ✅ `SignPDF()` / `VerifySignature()` | ❌ | ✅ `get_sigflags()` |
 
 ### 14. 文档清洗与优化
@@ -311,6 +311,91 @@
 | CMYK 颜色 | ✅ | ✅ | ✅ |
 | 裁剪多边形 | ✅ | ✅ | ✅ |
 
+### 20. 链接管理
+
+| 功能 | GoPDF2 | GoPDF | PyMuPDF |
+|------|--------|-------|---------|
+| 添加外部链接 | ✅ `AddExternalLink()` | ✅ `AddExternalLink()` | ✅ `insert_link()` |
+| 添加内部链接 | ✅ `AddInternalLink()` | ❌ | ✅ `insert_link()` |
+| 获取页面链接 | ✅ `GetLinks()` / `GetLinksOnPage()` | ❌ | ✅ `get_links()` |
+| 删除链接 | ✅ `DeleteLink()` / `DeleteLinkOnPage()` | ❌ | ✅ `delete_link()` |
+| 删除所有链接 | ✅ `DeleteAllLinks()` / `DeleteAllLinksOnPage()` | ❌ | ✅ 需手动遍历 |
+| 从 PDF 提取链接 | ✅ `ExtractLinks()` / `ExtractLinksFromPage()` | ❌ | ✅ `get_links()` |
+
+### 21. 文本替换
+
+| 功能 | GoPDF2 | GoPDF | PyMuPDF |
+|------|--------|-------|---------|
+| 搜索并替换文本 | ✅ `ReplaceText()` | ❌ | ❌（需手动实现） |
+| 大小写不敏感替换 | ✅ `CaseInsensitive` 选项 | ❌ | ❌ |
+| 指定页面替换 | ✅ `Pages` 选项 | ❌ | ❌ |
+| 最大替换次数限制 | ✅ `MaxReplacements` 选项 | ❌ | ❌ |
+| 十六进制字符串替换 | ✅ | ❌ | ❌ |
+
+> 文本替换是 GoPDF2 的独有功能，直接操作原始内容流，支持字面字符串和十六进制编码字符串。
+
+### 22. 文本提取格式
+
+| 功能 | GoPDF2 | GoPDF | PyMuPDF |
+|------|--------|-------|---------|
+| 纯文本 | ✅ `FormatText` | ❌ | ✅ `get_text("text")` |
+| 文本块 | ✅ `FormatBlocks` | ❌ | ✅ `get_text("blocks")` |
+| 带位置的单词 | ✅ `FormatWords` | ❌ | ✅ `get_text("words")` |
+| HTML 输出 | ✅ `FormatHTML` | ❌ | ✅ `get_text("html")` |
+| JSON 输出 | ✅ `FormatJSON` | ❌ | ❌ |
+
+### 23. 增强涂改
+
+| 功能 | GoPDF2 | GoPDF | PyMuPDF |
+|------|--------|-------|---------|
+| 基础涂改 | ✅ `ApplyRedactions()` | ❌ | ✅ `apply_redactions()` |
+| 自定义填充颜色 | ✅ `ApplyRedactionsEnhanced()` | ❌ | ✅ |
+| 涂改区域覆盖文本 | ✅ `OverlayText` 选项 | ❌ | ✅ |
+| 覆盖文本颜色/大小 | ✅ `OverlayColor` / `OverlayFontSize` | ❌ | ✅ |
+| 基于文本的涂改 | ✅ `RedactText()` | ❌ | ❌（需手动实现） |
+
+> `RedactText()` 将文本搜索与涂改合并为一次调用，是 GoPDF2 的独有功能。
+
+### 24. 页面变换
+
+| 功能 | GoPDF2 | GoPDF | PyMuPDF |
+|------|--------|-------|---------|
+| 缩放页面内容 | ✅ `ScalePage()` / `ScalePageInPDF()` | ❌ | ✅ 通过 Matrix |
+| 旋转页面内容 | ✅ `TransformPage()` / `RotatePageInPDF()` | ❌ | ✅ 通过 Matrix |
+| 组合变换 | ✅ `TransformPageInPDF()` | ❌ | ✅ 通过 Matrix |
+| 倾斜变换 | ✅ `SkewMatrix()` | ❌ | ✅ |
+| 矩阵求逆 | ✅ `Matrix.Inverse()` | ❌ | ✅ `~matrix` |
+| 变换矩形 | ✅ `Matrix.TransformRect()` | ❌ | ✅ |
+| 解析矩阵字符串 | ✅ `ParseMatrix()` | ❌ | ❌ |
+
+### 25. PDF/A 验证
+
+| 功能 | GoPDF2 | GoPDF | PyMuPDF |
+|------|--------|-------|---------|
+| PDF/A-1b 验证 | ✅ `ValidatePDFA()` | ❌ | ❌ |
+| PDF/A-2b 验证 | ✅ `ValidatePDFA()` | ❌ | ❌ |
+| XMP 元数据检查 | ✅ | ❌ | ❌ |
+| 字体嵌入检查 | ✅ | ❌ | ❌ |
+| JavaScript 检查 | ✅ | ❌ | ❌ |
+| 透明度检查 | ✅ | ❌ | ❌ |
+| 加密检查 | ✅ | ❌ | ❌ |
+
+> PDF/A 验证是 GoPDF2 的独有功能。GoPDF 和 PyMuPDF 均不提供内置的 PDF/A 合规性检查。
+
+### 26. PDF 比较
+
+| 功能 | GoPDF2 | GoPDF | PyMuPDF |
+|------|--------|-------|---------|
+| 比较两个 PDF | ✅ `ComparePDF()` | ❌ | ❌ |
+| 文本内容差异 | ✅ `CompareText` 选项 | ❌ | ❌ |
+| 图片数量差异 | ✅ `CompareImages` 选项 | ❌ | ❌ |
+| 字体差异 | ✅ `CompareFonts` 选项 | ❌ | ❌ |
+| 元数据差异 | ✅ `CompareMetadata` 选项 | ❌ | ❌ |
+| 页面尺寸差异 | ✅ | ❌ | ❌ |
+| 文本增删/移动 | ✅ | ❌ | ❌ |
+
+> PDF 比较是 GoPDF2 的独有功能。没有其他纯 Go PDF 库提供文档级别的差异对比能力。
+
 ---
 
 ## GoPDF2 独有优势（相对于 GoPDF 和 PyMuPDF）
@@ -331,6 +416,14 @@
 14. **OCG/图层** — 可选内容组与图层管理
 15. **HTML 渲染** — 内置 HTML 解析器用于 PDF 生成
 16. **文档统计** — 一行代码获取文档结构概览
+17. **AES 加密** — 支持 AES-128 和 AES-256 加密，不仅限于 RC4
+18. **链接 CRUD** — 完整的链接管理：获取、删除、从已有 PDF 提取链接
+19. **文本替换** — 在 PDF 内容流中搜索并替换文本，支持大小写不敏感和指定页面
+20. **多格式文本提取** — 提取文本为纯文本、文本块、单词、HTML 或 JSON 格式
+21. **增强涂改** — 自定义填充颜色、覆盖文本、基于文本的涂改（`RedactText()`）
+22. **页面变换** — 缩放、旋转、倾斜页面内容，支持组合矩阵变换
+23. **PDF/A 验证** — 内置 PDF/A 合规性检查（1b、1a、2b、2a）
+24. **PDF 比较** — 文档级差异对比：文本、图片、字体、元数据、页面尺寸
 
 ## GoPDF 优势
 
@@ -368,9 +461,15 @@
 | 表单填写与处理 | GoPDF2 |
 | 多格式文档转换 | PyMuPDF |
 | 需要底层 PDF 对象操作 | GoPDF2 或 PyMuPDF |
-| 涂改/安全删除敏感内容 | GoPDF2（基础）/ PyMuPDF（高级） |
+| 涂改/安全删除敏感内容 | GoPDF2 或 PyMuPDF |
 | 数字签名 | GoPDF2 |
 | 合并/拆分 PDF | GoPDF2 |
+| 搜索并替换 PDF 中的文本 | GoPDF2 |
+| PDF/A 合规性检查 | GoPDF2 |
+| 比较两个 PDF 文档 | GoPDF2 |
+| 页面缩放/旋转/变换 | GoPDF2 或 PyMuPDF |
+| AES 加密 PDF | GoPDF2 或 PyMuPDF |
+| 从 PDF 提取链接 | GoPDF2 或 PyMuPDF |
 
 ---
 
@@ -391,3 +490,13 @@
 | OCR | 不可行 | 需要 Tesseract 或类似引擎 |
 | 日志/撤销 | 高 | ✅ 已实现 — `JournalEnable()`、`JournalUndo()`、`JournalRedo()`、`JournalSave()`、`JournalLoad()` |
 | 线性化 | 高 | ✅ 已实现 — `Linearize()`（简化版 Web 优化） |
+| ~~AES 加密~~ | ~~中~~ | ✅ 已实现 — `SetEncryption()` 支持 AES-128 和 AES-256 |
+| ~~链接 CRUD~~ | ~~中~~ | ✅ 已实现 — `GetLinks()`、`DeleteLink()`、`ExtractLinks()` |
+| ~~文本替换~~ | ~~高~~ | ✅ 已实现 — `ReplaceText()` 支持大小写不敏感和指定页面 |
+| ~~多格式文本提取~~ | ~~中~~ | ✅ 已实现 — `ExtractTextFormatted()` 支持 Text、Blocks、Words、HTML、JSON 格式 |
+| ~~增强涂改~~ | ~~中~~ | ✅ 已实现 — `ApplyRedactionsEnhanced()`、`RedactText()` |
+| ~~页面变换~~ | ~~中~~ | ✅ 已实现 — `ScalePage()`、`TransformPage()`、`ScalePageInPDF()`、`RotatePageInPDF()` |
+| ~~PDF/A 验证~~ | ~~高~~ | ✅ 已实现 — `ValidatePDFA()` 支持 PDF/A-1b、1a、2b、2a |
+| ~~PDF 比较~~ | ~~高~~ | ✅ 已实现 — `ComparePDF()` 支持文本、图片、字体、元数据差异对比 |
+| EPUB → PDF 转换 | 极高 | 可通过已有 HTML 解析器实现；EPUB 本质是 HTML+CSS 打包 |
+| 高级页面渲染 | 极高 | 渐变、Pattern、Type3 字体、混合模式 |

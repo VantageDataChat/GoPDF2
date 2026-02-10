@@ -221,7 +221,7 @@ This document provides a detailed comparison between GoPDF2 (pure Go, fork of Go
 | Password protection | ✅ `PDFProtectionConfig` | ✅ `SetProtection()` | ✅ `save(encryption=...)` |
 | Permission control | ✅ | ✅ | ✅ |
 | Open encrypted PDF | ✅ `OpenPDF(Password)` | ❌ | ✅ `authenticate()` |
-| Encryption method selection | ✅ RC4 (V1/V2) | ✅ RC4 | ✅ Multiple standards |
+| Encryption method selection | ✅ RC4 (V1/V2), AES-128, AES-256 | ✅ RC4 | ✅ Multiple standards |
 | Digital signatures | ✅ `SignPDF()` / `VerifySignature()` | ❌ | ✅ `get_sigflags()` |
 
 ### 14. Document Scrubbing & Optimization
@@ -311,6 +311,91 @@ This document provides a detailed comparison between GoPDF2 (pure Go, fork of Go
 | CMYK colors | ✅ | ✅ | ✅ |
 | Clip polygon | ✅ | ✅ | ✅ |
 
+### 20. Link Management
+
+| Feature | GoPDF2 | GoPDF | PyMuPDF |
+|---------|--------|-------|---------|
+| Add external link | ✅ `AddExternalLink()` | ✅ `AddExternalLink()` | ✅ `insert_link()` |
+| Add internal link | ✅ `AddInternalLink()` | ❌ | ✅ `insert_link()` |
+| Get links on page | ✅ `GetLinks()` / `GetLinksOnPage()` | ❌ | ✅ `get_links()` |
+| Delete link | ✅ `DeleteLink()` / `DeleteLinkOnPage()` | ❌ | ✅ `delete_link()` |
+| Delete all links | ✅ `DeleteAllLinks()` / `DeleteAllLinksOnPage()` | ❌ | ✅ Manual iteration |
+| Extract links from PDF | ✅ `ExtractLinks()` / `ExtractLinksFromPage()` | ❌ | ✅ `get_links()` |
+
+### 21. Text Replacement
+
+| Feature | GoPDF2 | GoPDF | PyMuPDF |
+|---------|--------|-------|---------|
+| Search and replace text | ✅ `ReplaceText()` | ❌ | ❌ (manual) |
+| Case-insensitive replace | ✅ `CaseInsensitive` option | ❌ | ❌ |
+| Page-specific replace | ✅ `Pages` option | ❌ | ❌ |
+| Max replacements limit | ✅ `MaxReplacements` option | ❌ | ❌ |
+| Hex string replacement | ✅ | ❌ | ❌ |
+
+> Text replacement is unique to GoPDF2. It operates on raw content streams and handles both literal and hex-encoded strings.
+
+### 22. Text Extraction Formats
+
+| Feature | GoPDF2 | GoPDF | PyMuPDF |
+|---------|--------|-------|---------|
+| Plain text | ✅ `FormatText` | ❌ | ✅ `get_text("text")` |
+| Text blocks | ✅ `FormatBlocks` | ❌ | ✅ `get_text("blocks")` |
+| Words with positions | ✅ `FormatWords` | ❌ | ✅ `get_text("words")` |
+| HTML output | ✅ `FormatHTML` | ❌ | ✅ `get_text("html")` |
+| JSON output | ✅ `FormatJSON` | ❌ | ❌ |
+
+### 23. Enhanced Redaction
+
+| Feature | GoPDF2 | GoPDF | PyMuPDF |
+|---------|--------|-------|---------|
+| Basic redaction | ✅ `ApplyRedactions()` | ❌ | ✅ `apply_redactions()` |
+| Custom fill color | ✅ `ApplyRedactionsEnhanced()` | ❌ | ✅ |
+| Overlay text on redaction | ✅ `OverlayText` option | ❌ | ✅ |
+| Overlay text color/size | ✅ `OverlayColor` / `OverlayFontSize` | ❌ | ✅ |
+| Text-based redaction | ✅ `RedactText()` | ❌ | ❌ (manual) |
+
+> `RedactText()` combines SearchText + redaction in one call — unique to GoPDF2.
+
+### 24. Page Transformations
+
+| Feature | GoPDF2 | GoPDF | PyMuPDF |
+|---------|--------|-------|---------|
+| Scale page content | ✅ `ScalePage()` / `ScalePageInPDF()` | ❌ | ✅ Via Matrix |
+| Rotate page content | ✅ `TransformPage()` / `RotatePageInPDF()` | ❌ | ✅ Via Matrix |
+| Combined transforms | ✅ `TransformPageInPDF()` | ❌ | ✅ Via Matrix |
+| Skew transform | ✅ `SkewMatrix()` | ❌ | ✅ |
+| Matrix inverse | ✅ `Matrix.Inverse()` | ❌ | ✅ `~matrix` |
+| Transform rectangle | ✅ `Matrix.TransformRect()` | ❌ | ✅ |
+| Parse matrix string | ✅ `ParseMatrix()` | ❌ | ❌ |
+
+### 25. PDF/A Validation
+
+| Feature | GoPDF2 | GoPDF | PyMuPDF |
+|---------|--------|-------|---------|
+| PDF/A-1b validation | ✅ `ValidatePDFA()` | ❌ | ❌ |
+| PDF/A-2b validation | ✅ `ValidatePDFA()` | ❌ | ❌ |
+| XMP metadata check | ✅ | ❌ | ❌ |
+| Font embedding check | ✅ | ❌ | ❌ |
+| JavaScript check | ✅ | ❌ | ❌ |
+| Transparency check | ✅ | ❌ | ❌ |
+| Encryption check | ✅ | ❌ | ❌ |
+
+> PDF/A validation is unique to GoPDF2. Neither GoPDF nor PyMuPDF provides built-in PDF/A compliance checking.
+
+### 26. PDF Comparison
+
+| Feature | GoPDF2 | GoPDF | PyMuPDF |
+|---------|--------|-------|---------|
+| Compare two PDFs | ✅ `ComparePDF()` | ❌ | ❌ |
+| Text content diff | ✅ `CompareText` option | ❌ | ❌ |
+| Image count diff | ✅ `CompareImages` option | ❌ | ❌ |
+| Font diff | ✅ `CompareFonts` option | ❌ | ❌ |
+| Metadata diff | ✅ `CompareMetadata` option | ❌ | ❌ |
+| Page size diff | ✅ | ❌ | ❌ |
+| Text added/removed/moved | ✅ | ❌ | ❌ |
+
+> PDF comparison is unique to GoPDF2. No other pure-Go PDF library provides document-level diff capabilities.
+
 ---
 
 ## GoPDF2 Unique Strengths (vs both GoPDF and PyMuPDF)
@@ -331,6 +416,14 @@ This document provides a detailed comparison between GoPDF2 (pure Go, fork of Go
 14. **OCG/Layers** — Optional content groups with layer management
 15. **HTML Rendering** — Built-in HTML parser for PDF generation
 16. **Document Statistics** — One-line document structure overview
+17. **AES Encryption** — AES-128 and AES-256 encryption in addition to RC4
+18. **Link CRUD** — Full link management: get, delete, extract links from existing PDFs
+19. **Text Replacement** — Search and replace text in PDF content streams with case-insensitive and page-specific options
+20. **Multi-format Text Extraction** — Extract text as plain text, blocks, words, HTML, or JSON
+21. **Enhanced Redaction** — Custom fill colors, overlay text, and text-based redaction (`RedactText()`)
+22. **Page Transformations** — Scale, rotate, skew page content with combined matrix transforms
+23. **PDF/A Validation** — Built-in PDF/A compliance checking (1b, 1a, 2b, 2a)
+24. **PDF Comparison** — Document-level diff: text, images, fonts, metadata, page sizes
 
 ## GoPDF Strengths
 
@@ -368,9 +461,15 @@ This document provides a detailed comparison between GoPDF2 (pure Go, fork of Go
 | Form filling and processing | GoPDF2 |
 | Multi-format document conversion | PyMuPDF |
 | Low-level PDF object manipulation | GoPDF2 or PyMuPDF |
-| Redaction / secure content removal | GoPDF2 (basic) / PyMuPDF (advanced) |
+| Redaction / secure content removal | GoPDF2 or PyMuPDF |
 | Digital signatures | GoPDF2 |
 | Merge/split PDFs | GoPDF2 |
+| Search and replace text in PDFs | GoPDF2 |
+| PDF/A compliance checking | GoPDF2 |
+| Compare two PDF documents | GoPDF2 |
+| Page scaling/rotation/transformation | GoPDF2 or PyMuPDF |
+| AES-encrypted PDFs | GoPDF2 or PyMuPDF |
+| Extract links from PDFs | GoPDF2 or PyMuPDF |
 
 ---
 
@@ -391,3 +490,13 @@ Features theoretically implementable in pure Go, with varying complexity:
 | OCR | Not feasible | Requires Tesseract or similar |
 | Journalling (undo/redo) | High | ✅ Implemented — `JournalEnable()`, `JournalUndo()`, `JournalRedo()`, `JournalSave()`, `JournalLoad()` |
 | Linearization | High | ✅ Implemented — `Linearize()` (simplified web optimization) |
+| ~~AES encryption~~ | ~~Medium~~ | ✅ Implemented — `SetEncryption()` with AES-128 and AES-256 support |
+| ~~Link CRUD~~ | ~~Medium~~ | ✅ Implemented — `GetLinks()`, `DeleteLink()`, `ExtractLinks()` |
+| ~~Text replacement~~ | ~~High~~ | ✅ Implemented — `ReplaceText()` with case-insensitive and page-specific options |
+| ~~Multi-format text extraction~~ | ~~Medium~~ | ✅ Implemented — `ExtractTextFormatted()` with Text, Blocks, Words, HTML, JSON formats |
+| ~~Enhanced redaction~~ | ~~Medium~~ | ✅ Implemented — `ApplyRedactionsEnhanced()`, `RedactText()` |
+| ~~Page transformations~~ | ~~Medium~~ | ✅ Implemented — `ScalePage()`, `TransformPage()`, `ScalePageInPDF()`, `RotatePageInPDF()` |
+| ~~PDF/A validation~~ | ~~High~~ | ✅ Implemented — `ValidatePDFA()` for PDF/A-1b, 1a, 2b, 2a |
+| ~~PDF comparison~~ | ~~High~~ | ✅ Implemented — `ComparePDF()` with text, image, font, metadata diff |
+| EPUB → PDF conversion | Very High | Possible via existing HTML parser; EPUB is HTML+CSS packaged |
+| Advanced page rendering | Very High | Gradients, patterns, Type3 fonts, blend modes |
