@@ -1,4 +1,4 @@
-继续 package gopdf
+package gopdf
 
 import (
 	"bytes"

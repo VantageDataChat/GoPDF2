@@ -3,6 +3,7 @@ package gopdf
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -124,19 +125,23 @@ func checkPDFVersion(data []byte, level PDFAConformanceLevel, addError func(stri
 	}
 
 	versionStr := string(data[5:8])
+	version, err := strconv.ParseFloat(versionStr, 64)
+	if err != nil {
+		addError("VERSION", fmt.Sprintf("Cannot parse PDF version: %s", versionStr), "6.1.2")
+		return
+	}
+
 	switch level {
 	case PDFA1a, PDFA1b:
-		// PDF/A-1 requires PDF 1.4.
-		if versionStr != "1.4" && versionStr != "1.0" && versionStr != "1.1" &&
-			versionStr != "1.2" && versionStr != "1.3" {
-			// PDF 1.4 or earlier is required, but higher versions may still be compliant.
+		// PDF/A-1 requires PDF 1.4 or earlier.
+		if version > 1.4+0.001 {
 			addError("VERSION",
 				fmt.Sprintf("PDF/A-1 requires PDF version 1.4 or earlier, found %s", versionStr),
 				"6.1.2")
 		}
 	case PDFA2a, PDFA2b:
 		// PDF/A-2 allows up to PDF 1.7.
-		if versionStr > "1.7" {
+		if version > 1.7+0.001 {
 			addError("VERSION",
 				fmt.Sprintf("PDF/A-2 requires PDF version 1.7 or earlier, found %s", versionStr),
 				"6.1.2")
@@ -253,23 +258,25 @@ func checkDocumentInfo(data []byte, addWarning func(string)) {
 	}
 }
 
+// standard14Fonts is the set of PDF standard 14 font names.
+var standard14Fonts = map[string]bool{
+	"Courier":               true,
+	"Courier-Bold":          true,
+	"Courier-Oblique":       true,
+	"Courier-BoldOblique":   true,
+	"Helvetica":             true,
+	"Helvetica-Bold":        true,
+	"Helvetica-Oblique":     true,
+	"Helvetica-BoldOblique": true,
+	"Times-Roman":           true,
+	"Times-Bold":            true,
+	"Times-Italic":          true,
+	"Times-BoldItalic":      true,
+	"Symbol":                true,
+	"ZapfDingbats":          true,
+}
+
 // isStandard14Font checks if a font name is one of the PDF standard 14 fonts.
 func isStandard14Font(name string) bool {
-	standard14 := map[string]bool{
-		"Courier":               true,
-		"Courier-Bold":          true,
-		"Courier-Oblique":       true,
-		"Courier-BoldOblique":   true,
-		"Helvetica":             true,
-		"Helvetica-Bold":        true,
-		"Helvetica-Oblique":     true,
-		"Helvetica-BoldOblique": true,
-		"Times-Roman":           true,
-		"Times-Bold":            true,
-		"Times-Italic":          true,
-		"Times-BoldItalic":      true,
-		"Symbol":                true,
-		"ZapfDingbats":          true,
-	}
-	return standard14[name]
+	return standard14Fonts[name]
 }

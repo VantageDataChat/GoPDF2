@@ -1,8 +1,8 @@
 package gopdf
 
 import (
+	"bytes"
 	"fmt"
-	"strings"
 )
 
 // RedactionOptions configures enhanced redaction behavior.
@@ -181,7 +181,7 @@ func RedactText(pdfData []byte, searchText string, opts *RedactionOptions) ([]by
 
 		// Append redaction rectangles to the content stream.
 		stream := parser.getPageContentStream(pageIdx)
-		var extra strings.Builder
+		var extra bytes.Buffer
 		extra.Write(stream)
 
 		pageH := page.mediaBox[3] - page.mediaBox[1]
@@ -191,18 +191,18 @@ func RedactText(pdfData []byte, searchText string, opts *RedactionOptions) ([]by
 			x := r.X
 			y := pageH - r.Y - r.Height
 
-			extra.WriteString("\nq\n")
-			extra.WriteString(fmt.Sprintf("%.4f %.4f %.4f rg\n",
+			fmt.Fprintf(&extra, "\nq\n")
+			fmt.Fprintf(&extra, "%.4f %.4f %.4f rg\n",
 				float64(opts.FillColor[0])/255.0,
 				float64(opts.FillColor[1])/255.0,
-				float64(opts.FillColor[2])/255.0))
-			extra.WriteString(fmt.Sprintf("%.2f %.2f %.2f %.2f re f\n",
-				x, y, r.Width, r.Height))
-			extra.WriteString("Q\n")
+				float64(opts.FillColor[2])/255.0)
+			fmt.Fprintf(&extra, "%.2f %.2f %.2f %.2f re f\n",
+				x, y, r.Width, r.Height)
+			fmt.Fprintf(&extra, "Q\n")
 			count++
 		}
 
-		newStream := []byte(extra.String())
+		newStream := extra.Bytes()
 		output = replaceObjectStream(output, contentRef, contentObj.dict, newStream)
 	}
 

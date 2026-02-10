@@ -46,6 +46,7 @@ type aesEncryptionObj struct {
 	oeValue []byte // OE for AES-256
 	pValue  int
 	keyLen  int
+	fileKey []byte // file encryption key for AES-256
 }
 
 func (e *aesEncryptionObj) init(func() *GoPdf) {}
@@ -91,7 +92,7 @@ func (e *aesEncryptionObj) write(w io.Writer, objID int) error {
 			fmt.Fprintf(w, "/OE <%X>\n", e.oeValue)
 		}
 		io.WriteString(w, "/Perms <")
-		perms := computePermsValue(e.pValue, e.uValue[:16])
+		perms := computePermsValue(e.pValue, e.fileKey)
 		fmt.Fprintf(w, "%X", perms)
 		io.WriteString(w, ">\n")
 	}
@@ -239,14 +240,21 @@ func (gp *GoPdf) setupAES256(config AESEncryptionConfig) error {
 	rand.Read(userKeySalt)
 
 	// U value = SHA-256(password + validation salt) + validation salt + key salt.
-	uHash := sha256.Sum256(append(userPass, userValSalt...))
+	// Use explicit concatenation to avoid mutating userPass.
+	uHashInput := make([]byte, 0, len(userPass)+8)
+	uHashInput = append(uHashInput, userPass...)
+	uHashInput = append(uHashInput, userValSalt...)
+	uHash := sha256.Sum256(uHashInput)
 	uValue := make([]byte, 48)
 	copy(uValue[:32], uHash[:])
 	copy(uValue[32:40], userValSalt)
 	copy(uValue[40:48], userKeySalt)
 
 	// UE value = AES-256-CBC encrypt file key with SHA-256(password + key salt).
-	ueKeyHash := sha256.Sum256(append(userPass, userKeySalt...))
+	ueHashInput := make([]byte, 0, len(userPass)+8)
+	ueHashInput = append(ueHashInput, userPass...)
+	ueHashInput = append(ueHashInput, userKeySalt...)
+	ueKeyHash := sha256.Sum256(ueHashInput)
 	ueValue, err := aesEncryptCBC(ueKeyHash[:], fileKey)
 	if err != nil {
 		return fmt.Errorf("encrypt UE: %w", err)
@@ -259,7 +267,9 @@ func (gp *GoPdf) setupAES256(config AESEncryptionConfig) error {
 	rand.Read(ownerKeySalt)
 
 	// O value = SHA-256(password + validation salt + U) + validation salt + key salt.
-	oInput := append(ownerPass, ownerValSalt...)
+	oInput := make([]byte, 0, len(ownerPass)+8+48)
+	oInput = append(oInput, ownerPass...)
+	oInput = append(oInput, ownerValSalt...)
 	oInput = append(oInput, uValue[:48]...)
 	oHash := sha256.Sum256(oInput)
 	oValue := make([]byte, 48)
@@ -268,7 +278,9 @@ func (gp *GoPdf) setupAES256(config AESEncryptionConfig) error {
 	copy(oValue[40:48], ownerKeySalt)
 
 	// OE value = AES-256-CBC encrypt file key with SHA-256(password + key salt + U).
-	oeInput := append(ownerPass, ownerKeySalt...)
+	oeInput := make([]byte, 0, len(ownerPass)+8+48)
+	oeInput = append(oeInput, ownerPass...)
+	oeInput = append(oeInput, ownerKeySalt...)
 	oeInput = append(oeInput, uValue[:48]...)
 	oeKeyHash := sha256.Sum256(oeInput)
 	oeValue, err := aesEncryptCBC(oeKeyHash[:], fileKey)
@@ -284,6 +296,7 @@ func (gp *GoPdf) setupAES256(config AESEncryptionConfig) error {
 		oeValue: oeValue,
 		pValue:  pValue,
 		keyLen:  32,
+		fileKey: fileKey,
 	}
 
 	gp.encryptionObjID = gp.addObj(encObj) + 1
@@ -340,11 +353,21 @@ func aesDecryptCBC(key, ciphertext []byte) ([]byte, error) {
 	plaintext := make([]byte, len(data))
 	mode.CryptBlocks(plaintext, data)
 
-	// Remove PKCS7 padding.
+	// Remove PKCS7 padding with validation.
 	if len(plaintext) > 0 {
 		padLen := int(plaintext[len(plaintext)-1])
 		if padLen > 0 && padLen <= blockSize && padLen <= len(plaintext) {
-			plaintext = plaintext[:len(plaintext)-padLen]
+			// Validate all padding bytes are consistent.
+			valid := true
+			for i := len(plaintext) - padLen; i < len(plaintext); i++ {
+				if plaintext[i] != byte(padLen) {
+					valid = false
+					break
+				}
+			}
+			if valid {
+				plaintext = plaintext[:len(plaintext)-padLen]
+			}
 		}
 	}
 
@@ -352,6 +375,7 @@ func aesDecryptCBC(key, ciphertext []byte) ([]byte, error) {
 }
 
 // computePermsValue computes the /Perms value for AES-256 (R=6).
+// encKey must be the 32-byte file encryption key.
 func computePermsValue(pValue int, encKey []byte) []byte {
 	perms := make([]byte, 16)
 	binary.LittleEndian.PutUint32(perms[0:4], uint32(int32(pValue)))
@@ -366,14 +390,19 @@ func computePermsValue(pValue int, encKey []byte) []byte {
 	// 12-15: random
 	rand.Read(perms[12:16])
 
-	// AES-ECB encrypt with file encryption key.
-	if len(encKey) >= 16 {
-		block, err := aes.NewCipher(encKey[:16])
-		if err == nil {
-			dst := make([]byte, 16)
-			block.Encrypt(dst, perms)
-			return dst
-		}
+	// AES-ECB encrypt with file encryption key (must be 32 bytes for AES-256).
+	keyLen := len(encKey)
+	if keyLen != 16 && keyLen != 24 && keyLen != 32 {
+		// Fallback: truncate or pad to 32.
+		k := make([]byte, 32)
+		copy(k, encKey)
+		encKey = k
+	}
+	block, err := aes.NewCipher(encKey)
+	if err == nil {
+		dst := make([]byte, 16)
+		block.Encrypt(dst, perms)
+		return dst
 	}
 	return perms
 }

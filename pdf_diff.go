@@ -1,8 +1,10 @@
 package gopdf
 
 import (
+	"bytes"
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 )
 
@@ -229,16 +231,17 @@ func comparePageSizes(result *PDFDiffResult, pageIdx int, page1, page2 rawPDFPag
 func compareTextContent(result *PDFDiffResult, data1, data2 []byte,
 	parser1, parser2 *rawPDFParser, pageIdx int, tolerance float64) {
 
-	text1, _ := ExtractPageText(data1, pageIdx)
-	text2, _ := ExtractPageText(data2, pageIdx)
+	// Extract structured text once per document per page.
+	texts1, _ := ExtractTextFromPage(data1, pageIdx)
+	texts2, _ := ExtractTextFromPage(data2, pageIdx)
+
+	// Derive plain text for quick equality check.
+	text1 := joinExtractedTexts(texts1)
+	text2 := joinExtractedTexts(texts2)
 
 	if text1 == text2 {
 		return
 	}
-
-	// Detailed comparison.
-	texts1, _ := ExtractTextFromPage(data1, pageIdx)
-	texts2, _ := ExtractTextFromPage(data2, pageIdx)
 
 	// Build text maps for comparison.
 	map1 := make(map[string][]ExtractedText)
@@ -297,6 +300,21 @@ func compareTextContent(result *PDFDiffResult, data1, data2 []byte,
 			}
 		}
 	}
+}
+
+// joinExtractedTexts concatenates extracted text items into a single string.
+func joinExtractedTexts(texts []ExtractedText) string {
+	if len(texts) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	for i, t := range texts {
+		if i > 0 {
+			sb.WriteByte(' ')
+		}
+		sb.WriteString(t.Text)
+	}
+	return sb.String()
 }
 
 func compareFonts(result *PDFDiffResult, parser1, parser2 *rawPDFParser,
@@ -396,17 +414,34 @@ func compareMetadata(result *PDFDiffResult, data1, data2 []byte) {
 }
 
 func extractInfoValue(data []byte, key string) string {
-	s := string(data)
-	idx := strings.Index(s, key)
+	keyBytes := []byte(key)
+	idx := bytes.Index(data, keyBytes)
 	if idx < 0 {
 		return ""
 	}
-	rest := s[idx+len(key):]
-	rest = strings.TrimLeft(rest, " \t\r\n")
-	if len(rest) > 0 && rest[0] == '(' {
-		end := strings.Index(rest, ")")
-		if end > 0 {
-			return rest[1:end]
+	// Look at a small window after the key to find the value.
+	start := idx + len(keyBytes)
+	end := start + 256
+	if end > len(data) {
+		end = len(data)
+	}
+	rest := data[start:end]
+	// Skip whitespace.
+	i := 0
+	for i < len(rest) && (rest[i] == ' ' || rest[i] == '\t' || rest[i] == '\r' || rest[i] == '\n') {
+		i++
+	}
+	if i < len(rest) && rest[i] == '(' {
+		i++ // skip (
+		j := i
+		for j < len(rest) && rest[j] != ')' {
+			if rest[j] == '\\' {
+				j++ // skip escaped char
+			}
+			j++
+		}
+		if j <= len(rest) {
+			return string(rest[i:j])
 		}
 	}
 	return ""
@@ -422,9 +457,16 @@ func buildDiffSummary(result *PDFDiffResult) string {
 		counts[d.Type]++
 	}
 
+	// Sort diff types for deterministic output.
+	types := make([]DiffType, 0, len(counts))
+	for dt := range counts {
+		types = append(types, dt)
+	}
+	sort.Slice(types, func(i, j int) bool { return types[i] < types[j] })
+
 	var parts []string
-	for dt, count := range counts {
-		parts = append(parts, fmt.Sprintf("%d %s", count, dt.String()))
+	for _, dt := range types {
+		parts = append(parts, fmt.Sprintf("%d %s", counts[dt], dt.String()))
 	}
 	return fmt.Sprintf("%d differences found: %s", len(result.Differences), strings.Join(parts, ", "))
 }

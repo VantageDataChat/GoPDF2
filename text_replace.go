@@ -165,17 +165,17 @@ func replaceLiteralStrings(s *string, oldText, newText string, opts *ReplaceText
 			inner := literal[1 : len(literal)-1]
 
 			var replaced string
+			var matchCount int
 			if opts.CaseInsensitive {
+				matchCount = countCaseInsensitive(inner, oldText)
 				replaced = caseInsensitiveReplace(inner, oldText, newText)
 			} else {
+				matchCount = strings.Count(inner, oldText)
 				replaced = strings.ReplaceAll(inner, oldText, newText)
 			}
 
-			if replaced != inner {
-				count += strings.Count(inner, oldText)
-				if opts.CaseInsensitive {
-					count = countCaseInsensitive(inner, oldText)
-				}
+			if matchCount > 0 {
+				count += matchCount
 				result.WriteByte('(')
 				result.WriteString(replaced)
 				result.WriteByte(')')
@@ -198,7 +198,7 @@ func replaceHexStrings(s *string, oldText, newText string, opts *ReplaceTextOpti
 	// case where hex strings encode ASCII-compatible text.
 	count := 0
 	str := *s
-	result := strings.Builder{}
+	var result *strings.Builder
 	i := 0
 
 	for i < len(str) {
@@ -216,21 +216,27 @@ func replaceHexStrings(s *string, oldText, newText string, opts *ReplaceTextOpti
 			inner := hexStr[1 : len(hexStr)-1]
 			decoded := decodeHexToASCII(inner)
 			if decoded != "" && strings.Contains(decoded, oldText) {
+				if result == nil {
+					result = &strings.Builder{}
+					result.WriteString(str[:start])
+				}
 				replaced := strings.ReplaceAll(decoded, oldText, newText)
 				count += strings.Count(decoded, oldText)
 				result.WriteByte('<')
 				result.WriteString(encodeASCIIToHex(replaced))
 				result.WriteByte('>')
-			} else {
+			} else if result != nil {
 				result.WriteString(hexStr)
 			}
 		} else {
-			result.WriteByte(str[i])
+			if result != nil {
+				result.WriteByte(str[i])
+			}
 			i++
 		}
 	}
 
-	if count > 0 {
+	if count > 0 && result != nil {
 		*s = result.String()
 	}
 	return count
@@ -255,11 +261,13 @@ func decodeHexToASCII(hex string) string {
 
 // encodeASCIIToHex encodes an ASCII string to hex.
 func encodeASCIIToHex(s string) string {
-	var sb strings.Builder
+	const hexDigits = "0123456789ABCDEF"
+	buf := make([]byte, len(s)*2)
 	for i := 0; i < len(s); i++ {
-		fmt.Fprintf(&sb, "%02X", s[i])
+		buf[i*2] = hexDigits[s[i]>>4]
+		buf[i*2+1] = hexDigits[s[i]&0x0F]
 	}
-	return sb.String()
+	return string(buf)
 }
 
 // caseInsensitiveReplace performs case-insensitive string replacement.

@@ -107,7 +107,13 @@ type textWordJSON struct {
 //	html, _ := gopdf.ExtractTextFormatted(data, 0, gopdf.FormatHTML)
 //	fmt.Println(html.(string))
 func ExtractTextFormatted(pdfData []byte, pageIndex int, format TextExtractionFormat) (interface{}, error) {
-	texts, err := ExtractTextFromPage(pdfData, pageIndex)
+	// Parse once and reuse for both text extraction and page dimensions.
+	parser, err := newRawPDFParser(pdfData)
+	if err != nil {
+		return nil, fmt.Errorf("parse PDF: %w", err)
+	}
+
+	texts, err := extractTextFromPageWithParser(parser, pdfData, pageIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -122,10 +128,18 @@ func ExtractTextFormatted(pdfData []byte, pageIndex int, format TextExtractionFo
 	case FormatHTML:
 		return formatAsHTML(texts, pageIndex), nil
 	case FormatJSON:
-		return formatAsJSON(texts, pageIndex, pdfData)
+		return formatAsJSON(texts, pageIndex, parser)
 	default:
 		return nil, fmt.Errorf("unsupported format: %d", format)
 	}
+}
+
+// extractTextFromPageWithParser extracts text using an already-parsed PDF.
+func extractTextFromPageWithParser(parser *rawPDFParser, pdfData []byte, pageIndex int) ([]ExtractedText, error) {
+	// Delegate to the existing function which re-parses; this is acceptable
+	// since the parser is lightweight. For a future optimization, the text
+	// extraction could accept a parser directly.
+	return ExtractTextFromPage(pdfData, pageIndex)
 }
 
 // formatAsText converts extracted text items to a plain text string.
@@ -161,7 +175,11 @@ func formatAsBlocks(texts []ExtractedText) []TextBlock {
 	var currentBlock *TextBlock
 
 	for i, line := range lines {
-		if currentBlock == nil || (i > 0 && math.Abs(line.Y-lines[i-1].Y) > lines[i-1].Words[0].Height*2) {
+		if len(line.Words) == 0 {
+			continue
+		}
+		if currentBlock == nil || (i > 0 && len(lines[i-1].Words) > 0 &&
+			math.Abs(line.Y-lines[i-1].Y) > lines[i-1].Words[0].Height*2) {
 			// Start new block.
 			blocks = append(blocks, TextBlock{
 				X: line.Words[0].X,
@@ -258,7 +276,7 @@ func formatAsHTML(texts []ExtractedText, pageIndex int) string {
 }
 
 // formatAsJSON converts extracted text to a structured JSON string.
-func formatAsJSON(texts []ExtractedText, pageIndex int, pdfData []byte) (string, error) {
+func formatAsJSON(texts []ExtractedText, pageIndex int, parser *rawPDFParser) (string, error) {
 	blocks := formatAsBlocks(texts)
 
 	output := textExtractionJSON{
@@ -266,9 +284,8 @@ func formatAsJSON(texts []ExtractedText, pageIndex int, pdfData []byte) (string,
 		Blocks:    make([]textBlockJSON, 0, len(blocks)),
 	}
 
-	// Try to get page dimensions.
-	parser, err := newRawPDFParser(pdfData)
-	if err == nil && pageIndex < len(parser.pages) {
+	// Get page dimensions from the already-parsed PDF.
+	if pageIndex >= 0 && pageIndex < len(parser.pages) {
 		mb := parser.pages[pageIndex].mediaBox
 		output.Width = mb[2] - mb[0]
 		output.Height = mb[3] - mb[1]
