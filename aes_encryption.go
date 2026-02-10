@@ -56,49 +56,61 @@ func (e *aesEncryptionObj) getType() string {
 }
 
 func (e *aesEncryptionObj) write(w io.Writer, objID int) error {
-	io.WriteString(w, "<<\n")
-	io.WriteString(w, "/Filter /Standard\n")
+	var err error
+	ws := func(s string) {
+		if err == nil {
+			_, err = io.WriteString(w, s)
+		}
+	}
+	wf := func(format string, a ...interface{}) {
+		if err == nil {
+			_, err = fmt.Fprintf(w, format, a...)
+		}
+	}
+
+	ws("<<\n")
+	ws("/Filter /Standard\n")
 
 	switch e.method {
 	case EncryptAES128:
-		io.WriteString(w, "/V 4\n")
-		io.WriteString(w, "/R 4\n")
-		fmt.Fprintf(w, "/Length %d\n", e.keyLen*8)
-		io.WriteString(w, "/CF <</StdCF <</AuthEvent /DocOpen /CFM /AESV2 /Length 16>>>>\n")
-		io.WriteString(w, "/StmF /StdCF\n")
-		io.WriteString(w, "/StrF /StdCF\n")
+		ws("/V 4\n")
+		ws("/R 4\n")
+		wf("/Length %d\n", e.keyLen*8)
+		ws("/CF <</StdCF <</AuthEvent /DocOpen /CFM /AESV2 /Length 16>>>>\n")
+		ws("/StmF /StdCF\n")
+		ws("/StrF /StdCF\n")
 	case EncryptAES256:
-		io.WriteString(w, "/V 5\n")
-		io.WriteString(w, "/R 6\n")
-		fmt.Fprintf(w, "/Length %d\n", e.keyLen*8)
-		io.WriteString(w, "/CF <</StdCF <</AuthEvent /DocOpen /CFM /AESV3 /Length 32>>>>\n")
-		io.WriteString(w, "/StmF /StdCF\n")
-		io.WriteString(w, "/StrF /StdCF\n")
+		ws("/V 5\n")
+		ws("/R 6\n")
+		wf("/Length %d\n", e.keyLen*8)
+		ws("/CF <</StdCF <</AuthEvent /DocOpen /CFM /AESV3 /Length 32>>>>\n")
+		ws("/StmF /StdCF\n")
+		ws("/StrF /StdCF\n")
 	default:
 		// RC4 fallback
-		io.WriteString(w, "/V 1\n")
-		io.WriteString(w, "/R 2\n")
+		ws("/V 1\n")
+		ws("/R 2\n")
 	}
 
-	fmt.Fprintf(w, "/O <%X>\n", e.oValue)
-	fmt.Fprintf(w, "/U <%X>\n", e.uValue)
-	fmt.Fprintf(w, "/P %d\n", e.pValue)
+	wf("/O <%X>\n", e.oValue)
+	wf("/U <%X>\n", e.uValue)
+	wf("/P %d\n", e.pValue)
 
 	if e.method == EncryptAES256 {
 		if len(e.ueValue) > 0 {
-			fmt.Fprintf(w, "/UE <%X>\n", e.ueValue)
+			wf("/UE <%X>\n", e.ueValue)
 		}
 		if len(e.oeValue) > 0 {
-			fmt.Fprintf(w, "/OE <%X>\n", e.oeValue)
+			wf("/OE <%X>\n", e.oeValue)
 		}
-		io.WriteString(w, "/Perms <")
+		ws("/Perms <")
 		perms := computePermsValue(e.pValue, e.fileKey)
-		fmt.Fprintf(w, "%X", perms)
-		io.WriteString(w, ">\n")
+		wf("%X", perms)
+		ws(">\n")
 	}
 
-	io.WriteString(w, ">>\n")
-	return nil
+	ws(">>\n")
+	return err
 }
 
 // SetEncryption configures AES encryption for the document.
@@ -139,11 +151,14 @@ func (gp *GoPdf) setupAES128(config AESEncryptionConfig) error {
 	ownerPass := []byte(config.OwnerPassword)
 	if len(ownerPass) == 0 {
 		ownerPass = make([]byte, 16)
-		rand.Read(ownerPass)
+		if _, err := rand.Read(ownerPass); err != nil {
+			return err
+		}
 	}
 
-	perms := 192 | config.Permissions
-	pValue := -((perms ^ 255) + 1)
+	// PDF permission flags: bits 1-2 must be 0, bits 7-8 must be 1 (reserved).
+	// Set bits 13-32 to 1 per spec for R>=3, then OR in user permissions.
+	pValue := int(int32(-3904) | int32(config.Permissions))
 
 	// Compute O value (owner hash).
 	paddedOwner := padPassword(ownerPass)
@@ -221,11 +236,14 @@ func (gp *GoPdf) setupAES256(config AESEncryptionConfig) error {
 	ownerPass := []byte(config.OwnerPassword)
 	if len(ownerPass) == 0 {
 		ownerPass = make([]byte, 16)
-		rand.Read(ownerPass)
+		if _, err := rand.Read(ownerPass); err != nil {
+			return err
+		}
 	}
 
-	perms := 192 | config.Permissions
-	pValue := -((perms ^ 255) + 1)
+	// PDF permission flags: bits 1-2 must be 0, bits 7-8 must be 1 (reserved).
+	// Set bits 13-32 to 1 per spec for R=6, then OR in user permissions.
+	pValue := int(int32(-3904) | int32(config.Permissions))
 
 	// Generate random file encryption key (32 bytes).
 	fileKey := make([]byte, 32)
@@ -236,8 +254,12 @@ func (gp *GoPdf) setupAES256(config AESEncryptionConfig) error {
 	// User validation salt and key salt (8 bytes each).
 	userValSalt := make([]byte, 8)
 	userKeySalt := make([]byte, 8)
-	rand.Read(userValSalt)
-	rand.Read(userKeySalt)
+	if _, err := rand.Read(userValSalt); err != nil {
+		return fmt.Errorf("generate user validation salt: %w", err)
+	}
+	if _, err := rand.Read(userKeySalt); err != nil {
+		return fmt.Errorf("generate user key salt: %w", err)
+	}
 
 	// U value = SHA-256(password + validation salt) + validation salt + key salt.
 	// Use explicit concatenation to avoid mutating userPass.
@@ -251,11 +273,12 @@ func (gp *GoPdf) setupAES256(config AESEncryptionConfig) error {
 	copy(uValue[40:48], userKeySalt)
 
 	// UE value = AES-256-CBC encrypt file key with SHA-256(password + key salt).
+	// Per ISO 32000-2 §7.6.4.3.3, UE uses a zero IV (no IV prepended).
 	ueHashInput := make([]byte, 0, len(userPass)+8)
 	ueHashInput = append(ueHashInput, userPass...)
 	ueHashInput = append(ueHashInput, userKeySalt...)
 	ueKeyHash := sha256.Sum256(ueHashInput)
-	ueValue, err := aesEncryptCBC(ueKeyHash[:], fileKey)
+	ueValue, err := aesEncryptCBCZeroIV(ueKeyHash[:], fileKey)
 	if err != nil {
 		return fmt.Errorf("encrypt UE: %w", err)
 	}
@@ -263,8 +286,12 @@ func (gp *GoPdf) setupAES256(config AESEncryptionConfig) error {
 	// Owner validation salt and key salt.
 	ownerValSalt := make([]byte, 8)
 	ownerKeySalt := make([]byte, 8)
-	rand.Read(ownerValSalt)
-	rand.Read(ownerKeySalt)
+	if _, err := rand.Read(ownerValSalt); err != nil {
+		return fmt.Errorf("generate owner validation salt: %w", err)
+	}
+	if _, err := rand.Read(ownerKeySalt); err != nil {
+		return fmt.Errorf("generate owner key salt: %w", err)
+	}
 
 	// O value = SHA-256(password + validation salt + U) + validation salt + key salt.
 	oInput := make([]byte, 0, len(ownerPass)+8+48)
@@ -278,12 +305,13 @@ func (gp *GoPdf) setupAES256(config AESEncryptionConfig) error {
 	copy(oValue[40:48], ownerKeySalt)
 
 	// OE value = AES-256-CBC encrypt file key with SHA-256(password + key salt + U).
+	// Per ISO 32000-2 §7.6.4.3.3, OE uses a zero IV (no IV prepended).
 	oeInput := make([]byte, 0, len(ownerPass)+8+48)
 	oeInput = append(oeInput, ownerPass...)
 	oeInput = append(oeInput, ownerKeySalt...)
 	oeInput = append(oeInput, uValue[:48]...)
 	oeKeyHash := sha256.Sum256(oeInput)
-	oeValue, err := aesEncryptCBC(oeKeyHash[:], fileKey)
+	oeValue, err := aesEncryptCBCZeroIV(oeKeyHash[:], fileKey)
 	if err != nil {
 		return fmt.Errorf("encrypt OE: %w", err)
 	}
@@ -303,26 +331,54 @@ func (gp *GoPdf) setupAES256(config AESEncryptionConfig) error {
 	return nil
 }
 
+// pkcs7Pad applies PKCS7 padding to data for the given block size.
+func pkcs7Pad(data []byte, blockSize int) []byte {
+	padding := blockSize - len(data)%blockSize
+	padded := make([]byte, len(data)+padding)
+	copy(padded, data)
+	for i := len(data); i < len(padded); i++ {
+		padded[i] = byte(padding)
+	}
+	return padded
+}
+
 // aesEncryptCBC encrypts data using AES-CBC with PKCS7 padding.
+// Generates a random IV and prepends it to the output.
 func aesEncryptCBC(key, plaintext []byte) ([]byte, error) {
+	return aesEncryptCBCWithIV(key, plaintext, nil)
+}
+
+// aesEncryptCBCZeroIV encrypts data using AES-CBC with a zero IV.
+// Per ISO 32000-2 §7.6.4.3.3, UE and OE values use a zero IV.
+func aesEncryptCBCZeroIV(key, plaintext []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
+	iv := make([]byte, block.BlockSize()) // zero IV
+	padded := pkcs7Pad(plaintext, block.BlockSize())
 
-	// PKCS7 padding.
-	blockSize := block.BlockSize()
-	padding := blockSize - len(plaintext)%blockSize
-	padded := make([]byte, len(plaintext)+padding)
-	copy(padded, plaintext)
-	for i := len(plaintext); i < len(padded); i++ {
-		padded[i] = byte(padding)
-	}
+	ciphertext := make([]byte, len(padded))
+	mode := cipher.NewCBCEncrypter(block, iv)
+	mode.CryptBlocks(ciphertext, padded)
+	return ciphertext, nil
+}
 
-	// Generate random IV.
-	iv := make([]byte, blockSize)
-	if _, err := rand.Read(iv); err != nil {
+// aesEncryptCBCWithIV encrypts data using AES-CBC with PKCS7 padding.
+// If iv is nil, generates a random IV and prepends it to the output.
+func aesEncryptCBCWithIV(key, plaintext, iv []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
 		return nil, err
+	}
+	blockSize := block.BlockSize()
+	padded := pkcs7Pad(plaintext, blockSize)
+
+	if iv == nil {
+		iv = make([]byte, blockSize)
+		if _, err := rand.Read(iv); err != nil {
+			return nil, err
+		}
 	}
 
 	ciphertext := make([]byte, blockSize+len(padded))
@@ -344,6 +400,9 @@ func aesDecryptCBC(key, ciphertext []byte) ([]byte, error) {
 	blockSize := block.BlockSize()
 	if len(ciphertext) < blockSize*2 {
 		return nil, fmt.Errorf("ciphertext too short")
+	}
+	if len(ciphertext)%blockSize != 0 {
+		return nil, fmt.Errorf("ciphertext length %d is not a multiple of block size %d", len(ciphertext), blockSize)
 	}
 
 	iv := ciphertext[:blockSize]
@@ -390,10 +449,13 @@ func computePermsValue(pValue int, encKey []byte) []byte {
 	// 12-15: random
 	rand.Read(perms[12:16])
 
-	// AES-ECB encrypt with file encryption key (must be 32 bytes for AES-256).
-	keyLen := len(encKey)
-	if keyLen != 16 && keyLen != 24 && keyLen != 32 {
-		// Fallback: truncate or pad to 32.
+	// AES-ECB encrypt with file encryption key.
+	// Validate key length before creating cipher.
+	switch len(encKey) {
+	case 16, 24, 32:
+		// Valid AES key length.
+	default:
+		// Pad to 32 bytes for AES-256.
 		k := make([]byte, 32)
 		copy(k, encKey)
 		encKey = k

@@ -47,6 +47,9 @@ func (gp *GoPdf) getLinksFromPage(page *PageObj) []LinkInfo {
 	var result []LinkInfo
 	idx := 0
 	for _, objID := range page.LinkObjIds {
+		if objID < 1 || objID-1 >= len(gp.pdfObjs) {
+			continue
+		}
 		obj := gp.pdfObjs[objID-1]
 		switch v := obj.(type) {
 		case annotObj:
@@ -89,6 +92,9 @@ func (gp *GoPdf) DeleteLinkOnPage(pageNo, linkIndex int) bool {
 func (gp *GoPdf) deleteLinkFromPage(page *PageObj, targetIndex int) bool {
 	linkIdx := 0
 	for i, objID := range page.LinkObjIds {
+		if objID < 1 || objID-1 >= len(gp.pdfObjs) {
+			continue
+		}
 		obj := gp.pdfObjs[objID-1]
 		if _, ok := obj.(annotObj); ok {
 			if linkIdx == targetIndex {
@@ -120,6 +126,10 @@ func (gp *GoPdf) deleteAllLinksFromPage(page *PageObj) int {
 	kept := make([]int, 0, len(page.LinkObjIds))
 	removed := 0
 	for _, objID := range page.LinkObjIds {
+		if objID < 1 || objID-1 >= len(gp.pdfObjs) {
+			kept = append(kept, objID)
+			continue
+		}
 		obj := gp.pdfObjs[objID-1]
 		if _, ok := obj.(annotObj); ok {
 			removed++
@@ -152,8 +162,8 @@ type ExtractedLink struct {
 // Pre-compiled regexes for link extraction.
 var (
 	reLinkAnnot = regexp.MustCompile(`/Subtype\s*/Link`)
-	reLinkURI   = regexp.MustCompile(`/URI\s*\(([^)]*)\)`)
-	reLinkRect  = regexp.MustCompile(`/Rect\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\]`)
+	reLinkURI   = regexp.MustCompile(`/URI\s*\(((?:[^)\\]|\\.)*)\)`)
+	reLinkRect  = regexp.MustCompile(`/Rect\s*\[\s*(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s*\]`)
 	reLinkDest  = regexp.MustCompile(`/Dest\s*\[([^\]]*)\]`)
 )
 

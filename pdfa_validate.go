@@ -3,6 +3,7 @@ package gopdf
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -187,7 +188,15 @@ func checkXMPMetadata(data []byte, parser *rawPDFParser, level PDFAConformanceLe
 
 func checkFontEmbedding(parser *rawPDFParser, addError func(string, string, string), addWarning func(string)) {
 	for _, page := range parser.pages {
-		for fontName, objNum := range page.resources.fonts {
+		// Sort font names for deterministic output.
+		fontNames := make([]string, 0, len(page.resources.fonts))
+		for name := range page.resources.fonts {
+			fontNames = append(fontNames, name)
+		}
+		sort.Strings(fontNames)
+
+		for _, fontName := range fontNames {
+			objNum := page.resources.fonts[fontName]
 			obj, ok := parser.objects[objNum]
 			if !ok {
 				continue
@@ -207,19 +216,56 @@ func checkFontEmbedding(parser *rawPDFParser, addError func(string, string, stri
 
 			// Standard 14 fonts don't need embedding in some interpretations,
 			// but PDF/A strictly requires all fonts to be embedded.
-			isStandard14 := isStandard14Font(extractName(obj.dict, "/BaseFont"))
+			baseFontName := extractName(obj.dict, "/BaseFont")
+			isStandard14 := isStandard14Font(baseFontName)
 
 			if !hasFontFile && !isStandard14 {
 				// Check if it's a Type0 (composite) font with descendant.
 				if strings.Contains(obj.dict, "/Type0") {
+					// DescendantFonts is typically an array: [ref]
+					// Try extractRef first, then extractRefArray.
 					descRef := extractRef(obj.dict, "/DescendantFonts")
 					if descRef > 0 {
-						// Composite fonts may have embedded data in descendants.
+						descObj, ok := parser.objects[descRef]
+						if ok {
+							descFDRef := extractRef(descObj.dict, "/FontDescriptor")
+							if descFDRef > 0 {
+								descFDObj, ok := parser.objects[descFDRef]
+								if ok {
+									hasFontFile = strings.Contains(descFDObj.dict, "/FontFile") ||
+										strings.Contains(descFDObj.dict, "/FontFile2") ||
+										strings.Contains(descFDObj.dict, "/FontFile3")
+								}
+							}
+						}
+					}
+					if !hasFontFile {
+						// Try extractRefArray for array-style DescendantFonts.
+						descRefs := extractRefArray(obj.dict, "/DescendantFonts")
+						for _, dRef := range descRefs {
+							descObj, ok := parser.objects[dRef]
+							if !ok {
+								continue
+							}
+							descFDRef := extractRef(descObj.dict, "/FontDescriptor")
+							if descFDRef > 0 {
+								descFDObj, ok := parser.objects[descFDRef]
+								if ok && (strings.Contains(descFDObj.dict, "/FontFile") ||
+									strings.Contains(descFDObj.dict, "/FontFile2") ||
+									strings.Contains(descFDObj.dict, "/FontFile3")) {
+									hasFontFile = true
+									break
+								}
+							}
+						}
+					}
+					if hasFontFile {
 						continue
 					}
+					// Composite font without verifiable embedding — still flag it.
 				}
 				addError("FONT",
-					fmt.Sprintf("Font %s (%s) is not embedded", fontName, extractName(obj.dict, "/BaseFont")),
+					fmt.Sprintf("Font %s (%s) is not embedded", fontName, baseFontName),
 					"6.3.5")
 			}
 
@@ -232,7 +278,9 @@ func checkFontEmbedding(parser *rawPDFParser, addError func(string, string, stri
 
 func checkJavaScript(data []byte, addError func(string, string, string)) {
 	if bytes.Contains(data, []byte("/JavaScript")) ||
-		bytes.Contains(data, []byte("/JS ")) {
+		bytes.Contains(data, []byte("/JS ")) ||
+		bytes.Contains(data, []byte("/JS(")) ||
+		bytes.Contains(data, []byte("/JS<")) {
 		addError("JS", "JavaScript is not allowed in PDF/A", "6.6.1")
 	}
 }

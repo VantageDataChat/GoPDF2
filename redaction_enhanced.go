@@ -3,6 +3,7 @@ package gopdf
 import (
 	"bytes"
 	"fmt"
+	"sort"
 )
 
 // RedactionOptions configures enhanced redaction behavior.
@@ -69,6 +70,10 @@ func (gp *GoPdf) applyEnhancedRedactions(page *PageObj, opts RedactionOptions) i
 	removed := 0
 
 	for _, objID := range page.LinkObjIds {
+		if objID < 1 || objID-1 >= len(gp.pdfObjs) {
+			kept = append(kept, objID)
+			continue
+		}
 		obj := gp.pdfObjs[objID-1]
 		if aObj, ok := obj.(annotationObj); ok && aObj.opt.Type == AnnotRedact {
 			areas = append(areas, redactArea{
@@ -139,6 +144,10 @@ func RedactText(pdfData []byte, searchText string, opts *RedactionOptions) ([]by
 		}
 	}
 
+	if searchText == "" {
+		return pdfData, 0, fmt.Errorf("searchText cannot be empty")
+	}
+
 	// Search for text locations.
 	results, err := SearchText(pdfData, searchText, false)
 	if err != nil {
@@ -152,7 +161,7 @@ func RedactText(pdfData []byte, searchText string, opts *RedactionOptions) ([]by
 	// Build redaction content stream patches.
 	parser, err := newRawPDFParser(pdfData)
 	if err != nil {
-		return pdfData, 0, err
+		return pdfData, 0, fmt.Errorf("parse PDF for redaction: %w", err)
 	}
 
 	output := make([]byte, len(pdfData))
@@ -165,7 +174,15 @@ func RedactText(pdfData []byte, searchText string, opts *RedactionOptions) ([]by
 		pageResults[r.PageIndex] = append(pageResults[r.PageIndex], r)
 	}
 
-	for pageIdx, pageRes := range pageResults {
+	// Sort page indices for deterministic processing order.
+	pageIndices := make([]int, 0, len(pageResults))
+	for idx := range pageResults {
+		pageIndices = append(pageIndices, idx)
+	}
+	sort.Ints(pageIndices)
+
+	for _, pageIdx := range pageIndices {
+		pageRes := pageResults[pageIdx]
 		if pageIdx >= len(parser.pages) {
 			continue
 		}
@@ -182,6 +199,7 @@ func RedactText(pdfData []byte, searchText string, opts *RedactionOptions) ([]by
 		// Append redaction rectangles to the content stream.
 		stream := parser.getPageContentStream(pageIdx)
 		var extra bytes.Buffer
+		extra.Grow(len(stream) + len(pageRes)*128)
 		extra.Write(stream)
 
 		pageH := page.mediaBox[3] - page.mediaBox[1]

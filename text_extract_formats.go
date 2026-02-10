@@ -136,10 +136,18 @@ func ExtractTextFormatted(pdfData []byte, pageIndex int, format TextExtractionFo
 
 // extractTextFromPageWithParser extracts text using an already-parsed PDF.
 func extractTextFromPageWithParser(parser *rawPDFParser, pdfData []byte, pageIndex int) ([]ExtractedText, error) {
-	// Delegate to the existing function which re-parses; this is acceptable
-	// since the parser is lightweight. For a future optimization, the text
-	// extraction could accept a parser directly.
-	return ExtractTextFromPage(pdfData, pageIndex)
+	if pageIndex < 0 || pageIndex >= len(parser.pages) {
+		return nil, fmt.Errorf("page index %d out of range (0-%d)", pageIndex, len(parser.pages)-1)
+	}
+
+	stream := parser.getPageContentStream(pageIndex)
+	if len(stream) == 0 {
+		return nil, nil
+	}
+
+	page := parser.pages[pageIndex]
+	fonts := buildFontMap(parser, page)
+	return parseTextOperators(stream, fonts, page.mediaBox), nil
 }
 
 // formatAsText converts extracted text items to a plain text string.
@@ -197,7 +205,8 @@ func formatAsBlocks(texts []ExtractedText) []TextBlock {
 			continue
 		}
 		minX := math.MaxFloat64
-		maxX := 0.0
+		maxX := -math.MaxFloat64
+		lastLineHeight := 0.0
 		for _, line := range b.Lines {
 			for _, w := range line.Words {
 				if w.X < minX {
@@ -209,8 +218,16 @@ func formatAsBlocks(texts []ExtractedText) []TextBlock {
 			}
 		}
 		b.X = minX
-		b.Width = maxX - minX
-		b.Height = b.Lines[len(b.Lines)-1].Y - b.Y + b.Lines[len(b.Lines)-1].Words[0].Height
+		if minX == math.MaxFloat64 {
+			b.X = 0
+		}
+		b.Width = maxX - b.X
+		// Use the last line's first word height for block height calculation.
+		lastLine := b.Lines[len(b.Lines)-1]
+		if len(lastLine.Words) > 0 {
+			lastLineHeight = lastLine.Words[0].Height
+		}
+		b.Height = lastLine.Y - b.Y + lastLineHeight
 	}
 
 	return blocks
@@ -224,10 +241,11 @@ func formatAsWords(texts []ExtractedText) []TextWord {
 		parts := strings.Fields(t.Text)
 		x := t.X
 		for _, part := range parts {
+			runeCount := len([]rune(part))
 			w := TextWord{
 				X:        x,
 				Y:        t.Y,
-				Width:    t.FontSize * float64(len(part)) * 0.5,
+				Width:    t.FontSize * float64(runeCount) * 0.5,
 				Height:   t.FontSize,
 				Text:     part,
 				FontName: t.FontName,
@@ -252,6 +270,9 @@ func formatAsHTML(texts []ExtractedText, pageIndex int) string {
 	sb.WriteString(fmt.Sprintf("<div class=\"page\" data-page=\"%d\">\n", pageIndex))
 
 	for _, line := range lines {
+		if len(line.Words) == 0 {
+			continue
+		}
 		sb.WriteString(fmt.Sprintf("  <p style=\"position:absolute;top:%.1fpx;left:%.1fpx;\">",
 			line.Y, line.Words[0].X))
 
@@ -334,30 +355,27 @@ func groupIntoLines(texts []ExtractedText) []TextLine {
 		return nil
 	}
 
+	// Sort by Y first for efficient grouping.
+	sorted := make([]ExtractedText, len(texts))
+	copy(sorted, texts)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].Y < sorted[j].Y
+	})
+
 	type lineGroup struct {
 		y     float64
 		items []ExtractedText
 	}
 	var groups []lineGroup
 
-	for _, t := range texts {
-		found := false
-		for i := range groups {
-			if math.Abs(groups[i].y-t.Y) < 2 {
-				groups[i].items = append(groups[i].items, t)
-				found = true
-				break
-			}
-		}
-		if !found {
+	// Since sorted by Y, we only need to compare with the last group.
+	for _, t := range sorted {
+		if len(groups) > 0 && math.Abs(groups[len(groups)-1].y-t.Y) < 2 {
+			groups[len(groups)-1].items = append(groups[len(groups)-1].items, t)
+		} else {
 			groups = append(groups, lineGroup{y: t.Y, items: []ExtractedText{t}})
 		}
 	}
-
-	// Sort groups by Y.
-	sort.Slice(groups, func(i, j int) bool {
-		return groups[i].y < groups[j].y
-	})
 
 	lines := make([]TextLine, 0, len(groups))
 	for _, g := range groups {
@@ -371,10 +389,11 @@ func groupIntoLines(texts []ExtractedText) []TextLine {
 		for _, item := range g.items {
 			words := strings.Fields(item.Text)
 			for _, word := range words {
+				runeCount := len([]rune(word))
 				line.Words = append(line.Words, TextWord{
 					X:        item.X,
 					Y:        item.Y,
-					Width:    item.FontSize * float64(len(word)) * 0.5,
+					Width:    item.FontSize * float64(runeCount) * 0.5,
 					Height:   item.FontSize,
 					Text:     word,
 					FontName: item.FontName,

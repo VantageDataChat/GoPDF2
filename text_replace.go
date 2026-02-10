@@ -138,9 +138,64 @@ func replaceInContentStream(stream *string, oldText, newText string, opts *Repla
 // replaceLiteralStrings replaces text within PDF literal strings (...).
 func replaceLiteralStrings(s *string, oldText, newText string, opts *ReplaceTextOptions) int {
 	count := 0
-	result := strings.Builder{}
 	str := *s
 	i := 0
+
+	// First pass: check if any replacements are needed.
+	hasMatch := false
+	scanI := 0
+	for scanI < len(str) {
+		if str[scanI] == '(' {
+			depth := 1
+			scanI++
+			start := scanI
+			for scanI < len(str) && depth > 0 {
+				if str[scanI] == '\\' {
+					scanI += 2
+					if scanI > len(str) {
+						scanI = len(str)
+					}
+					continue
+				}
+				if str[scanI] == '(' {
+					depth++
+				} else if str[scanI] == ')' {
+					depth--
+				}
+				scanI++
+			}
+			end := scanI - 1
+			if end < start {
+				end = start
+			}
+			if end > len(str) {
+				end = len(str)
+			}
+			inner := str[start:end]
+			if opts.CaseInsensitive {
+				if countCaseInsensitive(inner, oldText) > 0 {
+					hasMatch = true
+					break
+				}
+			} else {
+				if strings.Contains(inner, oldText) {
+					hasMatch = true
+					break
+				}
+			}
+		} else {
+			scanI++
+		}
+	}
+
+	if !hasMatch {
+		return 0
+	}
+
+	// Second pass: perform replacements.
+	result := strings.Builder{}
+	result.Grow(len(str))
+	i = 0
 
 	for i < len(str) {
 		if str[i] == '(' {
@@ -151,6 +206,9 @@ func replaceLiteralStrings(s *string, oldText, newText string, opts *ReplaceText
 			for i < len(str) && depth > 0 {
 				if str[i] == '\\' {
 					i += 2
+					if i > len(str) {
+						i = len(str)
+					}
 					continue
 				}
 				if str[i] == '(' {
@@ -161,6 +219,11 @@ func replaceLiteralStrings(s *string, oldText, newText string, opts *ReplaceText
 				i++
 			}
 			literal := str[start:i]
+			if depth != 0 || len(literal) < 2 {
+				// Unbalanced parentheses — write as-is.
+				result.WriteString(literal)
+				continue
+			}
 			// Extract inner content.
 			inner := literal[1 : len(literal)-1]
 
@@ -198,7 +261,8 @@ func replaceHexStrings(s *string, oldText, newText string, opts *ReplaceTextOpti
 	// case where hex strings encode ASCII-compatible text.
 	count := 0
 	str := *s
-	var result *strings.Builder
+	var result strings.Builder
+	resultStarted := false
 	i := 0
 
 	for i < len(str) {
@@ -208,35 +272,47 @@ func replaceHexStrings(s *string, oldText, newText string, opts *ReplaceTextOpti
 			for i < len(str) && str[i] != '>' {
 				i++
 			}
-			if i < len(str) {
-				i++ // skip >
+			if i >= len(str) {
+				// Unterminated hex string — write as-is.
+				if resultStarted {
+					result.WriteString(str[start:])
+				}
+				break
 			}
+			i++ // skip >
 			hexStr := str[start:i]
+			if len(hexStr) < 2 {
+				if resultStarted {
+					result.WriteString(hexStr)
+				}
+				continue
+			}
 			// Try to decode, replace, and re-encode.
 			inner := hexStr[1 : len(hexStr)-1]
 			decoded := decodeHexToASCII(inner)
 			if decoded != "" && strings.Contains(decoded, oldText) {
-				if result == nil {
-					result = &strings.Builder{}
+				if !resultStarted {
+					result.Grow(len(str))
 					result.WriteString(str[:start])
+					resultStarted = true
 				}
 				replaced := strings.ReplaceAll(decoded, oldText, newText)
 				count += strings.Count(decoded, oldText)
 				result.WriteByte('<')
 				result.WriteString(encodeASCIIToHex(replaced))
 				result.WriteByte('>')
-			} else if result != nil {
+			} else if resultStarted {
 				result.WriteString(hexStr)
 			}
 		} else {
-			if result != nil {
+			if resultStarted {
 				result.WriteByte(str[i])
 			}
 			i++
 		}
 	}
 
-	if count > 0 && result != nil {
+	if count > 0 && resultStarted {
 		*s = result.String()
 	}
 	return count
@@ -251,8 +327,8 @@ func decodeHexToASCII(hex string) string {
 	var sb strings.Builder
 	for i := 0; i+1 < len(hex); i += 2 {
 		b := parseHex16(hex[i : i+2])
-		if b < 32 || b > 126 {
-			return "" // not ASCII
+		if b > 126 || b < 32 {
+			return "" // not printable ASCII
 		}
 		sb.WriteByte(byte(b))
 	}
@@ -276,7 +352,7 @@ func caseInsensitiveReplace(s, old, new string) string {
 	lowerOld := strings.ToLower(old)
 	var result strings.Builder
 	i := 0
-	for i < len(s) {
+	for i < len(lower) {
 		pos := strings.Index(lower[i:], lowerOld)
 		if pos < 0 {
 			result.WriteString(s[i:])
@@ -284,7 +360,7 @@ func caseInsensitiveReplace(s, old, new string) string {
 		}
 		result.WriteString(s[i : i+pos])
 		result.WriteString(new)
-		i += pos + len(old)
+		i += pos + len(lowerOld)
 	}
 	return result.String()
 }

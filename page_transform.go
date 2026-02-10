@@ -42,6 +42,8 @@ func (gp *GoPdf) ScalePage(sx, sy float64) {
 }
 
 // TransformPage applies a combined transformation to the current page content.
+// IMPORTANT: You must call TransformPageEnd() after drawing content to restore
+// the graphics state. Failing to do so will corrupt the page's graphics state.
 //
 // Example:
 //
@@ -51,6 +53,8 @@ func (gp *GoPdf) ScalePage(sx, sy float64) {
 //	    Rotation:  45,
 //	    UsePageCenter: true,
 //	})
+//	// ... draw content ...
+//	pdf.TransformPageEnd()
 func (gp *GoPdf) TransformPage(opts PageTransformOptions) {
 	if opts.ScaleX == 0 {
 		opts.ScaleX = 1
@@ -202,6 +206,7 @@ func TransformPageInPDF(pdfData []byte, pageIndex int, opts PageTransformOptions
 
 	// Wrap the content stream with q ... Q and the cm operator.
 	var newStream bytes.Buffer
+	newStream.Grow(len(stream) + 128)
 	fmt.Fprintf(&newStream, "q\n%.6f %.6f %.6f %.6f %.6f %.6f cm\n",
 		m.A, m.B, m.C, m.D, m.E, m.F)
 	newStream.Write(stream)
@@ -270,18 +275,55 @@ func (m Matrix) String() string {
 }
 
 // ParseMatrix parses a matrix from a PDF content stream "a b c d e f" format.
+// Handles cases where negative numbers may not have spaces before them (e.g., "1 0 0 1-10 20").
 func ParseMatrix(s string) (Matrix, error) {
-	parts := strings.Fields(s)
-	if len(parts) < 6 {
-		return IdentityMatrix(), fmt.Errorf("need 6 values, got %d", len(parts))
-	}
+	// Use a custom tokenizer that handles negative numbers without spaces.
 	var vals [6]float64
-	for i := 0; i < 6; i++ {
-		v, err := strconv.ParseFloat(parts[i], 64)
-		if err != nil {
-			return IdentityMatrix(), fmt.Errorf("parse value %d: %w", i, err)
+	count := 0
+	i := 0
+	s = strings.TrimSpace(s)
+
+	for i < len(s) && count < 6 {
+		// Skip whitespace.
+		for i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\r' || s[i] == '\n') {
+			i++
 		}
-		vals[i] = v
+		if i >= len(s) {
+			break
+		}
+
+		// Find the end of this number.
+		start := i
+		if s[i] == '-' || s[i] == '+' {
+			i++
+		}
+		hasDigit := false
+		hasDot := false
+		for i < len(s) {
+			if s[i] >= '0' && s[i] <= '9' {
+				hasDigit = true
+				i++
+			} else if s[i] == '.' && !hasDot {
+				hasDot = true
+				i++
+			} else {
+				break
+			}
+		}
+		if !hasDigit {
+			return IdentityMatrix(), fmt.Errorf("unexpected character at position %d", start)
+		}
+
+		v, err := strconv.ParseFloat(s[start:i], 64)
+		if err != nil {
+			return IdentityMatrix(), fmt.Errorf("parse value %d: %w", count, err)
+		}
+		vals[count] = v
+		count++
+	}
+
+	if count < 6 {
+		return IdentityMatrix(), fmt.Errorf("need 6 values, got %d", count)
 	}
 	return Matrix{A: vals[0], B: vals[1], C: vals[2], D: vals[3], E: vals[4], F: vals[5]}, nil
 }

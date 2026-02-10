@@ -231,15 +231,30 @@ func comparePageSizes(result *PDFDiffResult, pageIdx int, page1, page2 rawPDFPag
 func compareTextContent(result *PDFDiffResult, data1, data2 []byte,
 	parser1, parser2 *rawPDFParser, pageIdx int, tolerance float64) {
 
-	// Extract structured text once per document per page.
-	texts1, _ := ExtractTextFromPage(data1, pageIdx)
-	texts2, _ := ExtractTextFromPage(data2, pageIdx)
+	// Extract structured text using the already-parsed parsers.
+	texts1 := extractTextsWithParser(parser1, data1, pageIdx)
+	texts2 := extractTextsWithParser(parser2, data2, pageIdx)
 
 	// Derive plain text for quick equality check.
 	text1 := joinExtractedTexts(texts1)
 	text2 := joinExtractedTexts(texts2)
 
 	if text1 == text2 {
+		// Text content is the same; check if positions differ (moved text).
+		if len(texts1) == len(texts2) {
+			for j := 0; j < len(texts1); j++ {
+				if math.Abs(texts1[j].X-texts2[j].X) > tolerance ||
+					math.Abs(texts1[j].Y-texts2[j].Y) > tolerance {
+					result.Differences = append(result.Differences, PDFDifference{
+						Type:        DiffTextMoved,
+						PageIndex:   pageIdx,
+						Description: fmt.Sprintf("Text '%s' moved", truncateText(texts1[j].Text, 30)),
+						Detail1:     fmt.Sprintf("(%.0f, %.0f)", texts1[j].X, texts1[j].Y),
+						Detail2:     fmt.Sprintf("(%.0f, %.0f)", texts2[j].X, texts2[j].Y),
+					})
+				}
+			}
+		}
 		return
 	}
 
@@ -253,10 +268,27 @@ func compareTextContent(result *PDFDiffResult, data1, data2 []byte,
 		map2[t.Text] = append(map2[t.Text], t)
 	}
 
-	// Find removed text (in doc1 but not doc2).
-	for text, items := range map1 {
-		if _, exists := map2[text]; !exists {
-			for _, item := range items {
+	// Collect text keys and sort for deterministic output.
+	allKeys := make(map[string]struct{})
+	for k := range map1 {
+		allKeys[k] = struct{}{}
+	}
+	for k := range map2 {
+		allKeys[k] = struct{}{}
+	}
+	sortedKeys := make([]string, 0, len(allKeys))
+	for k := range allKeys {
+		sortedKeys = append(sortedKeys, k)
+	}
+	sort.Strings(sortedKeys)
+
+	for _, text := range sortedKeys {
+		items1, in1 := map1[text]
+		items2, in2 := map2[text]
+
+		if in1 && !in2 {
+			// Text removed.
+			for _, item := range items1 {
 				result.Differences = append(result.Differences, PDFDifference{
 					Type:        DiffTextRemoved,
 					PageIndex:   pageIdx,
@@ -264,13 +296,9 @@ func compareTextContent(result *PDFDiffResult, data1, data2 []byte,
 					Detail1:     text,
 				})
 			}
-		}
-	}
-
-	// Find added text (in doc2 but not doc1).
-	for text, items := range map2 {
-		if _, exists := map1[text]; !exists {
-			for _, item := range items {
+		} else if !in1 && in2 {
+			// Text added.
+			for _, item := range items2 {
 				result.Differences = append(result.Differences, PDFDifference{
 					Type:        DiffTextAdded,
 					PageIndex:   pageIdx,
@@ -278,28 +306,36 @@ func compareTextContent(result *PDFDiffResult, data1, data2 []byte,
 					Detail2:     text,
 				})
 			}
-		}
-	}
-
-	// Find moved text (same text, different position).
-	for text, items1 := range map1 {
-		items2, exists := map2[text]
-		if !exists {
-			continue
-		}
-		for j := 0; j < len(items1) && j < len(items2); j++ {
-			if math.Abs(items1[j].X-items2[j].X) > tolerance ||
-				math.Abs(items1[j].Y-items2[j].Y) > tolerance {
-				result.Differences = append(result.Differences, PDFDifference{
-					Type:      DiffTextMoved,
-					PageIndex: pageIdx,
-					Description: fmt.Sprintf("Text '%s' moved", truncateText(text, 30)),
-					Detail1:   fmt.Sprintf("(%.0f, %.0f)", items1[j].X, items1[j].Y),
-					Detail2:   fmt.Sprintf("(%.0f, %.0f)", items2[j].X, items2[j].Y),
-				})
+		} else if in1 && in2 {
+			// Check for moved text.
+			for j := 0; j < len(items1) && j < len(items2); j++ {
+				if math.Abs(items1[j].X-items2[j].X) > tolerance ||
+					math.Abs(items1[j].Y-items2[j].Y) > tolerance {
+					result.Differences = append(result.Differences, PDFDifference{
+						Type:      DiffTextMoved,
+						PageIndex: pageIdx,
+						Description: fmt.Sprintf("Text '%s' moved", truncateText(text, 30)),
+						Detail1:   fmt.Sprintf("(%.0f, %.0f)", items1[j].X, items1[j].Y),
+						Detail2:   fmt.Sprintf("(%.0f, %.0f)", items2[j].X, items2[j].Y),
+					})
+				}
 			}
 		}
 	}
+}
+
+// extractTextsWithParser extracts text from a page using an already-parsed PDF.
+func extractTextsWithParser(parser *rawPDFParser, data []byte, pageIdx int) []ExtractedText {
+	if pageIdx < 0 || pageIdx >= len(parser.pages) {
+		return nil
+	}
+	stream := parser.getPageContentStream(pageIdx)
+	if len(stream) == 0 {
+		return nil
+	}
+	page := parser.pages[pageIdx]
+	fonts := buildFontMap(parser, page)
+	return parseTextOperators(stream, fonts, page.mediaBox)
 }
 
 // joinExtractedTexts concatenates extracted text items into a single string.
@@ -334,15 +370,37 @@ func compareFonts(result *PDFDiffResult, parser1, parser2 *rawPDFParser,
 		}
 	}
 
-	// Find font differences.
-	for name, base1 := range fonts1 {
-		base2, exists := fonts2[name]
-		if !exists {
+	// Collect all font names and sort for deterministic output.
+	allFonts := make(map[string]struct{})
+	for name := range fonts1 {
+		allFonts[name] = struct{}{}
+	}
+	for name := range fonts2 {
+		allFonts[name] = struct{}{}
+	}
+	sortedFonts := make([]string, 0, len(allFonts))
+	for name := range allFonts {
+		sortedFonts = append(sortedFonts, name)
+	}
+	sort.Strings(sortedFonts)
+
+	for _, name := range sortedFonts {
+		base1, in1 := fonts1[name]
+		base2, in2 := fonts2[name]
+
+		if in1 && !in2 {
 			result.Differences = append(result.Differences, PDFDifference{
 				Type:        DiffFontDifference,
 				PageIndex:   pageIdx,
 				Description: fmt.Sprintf("Font %s removed", name),
 				Detail1:     base1,
+			})
+		} else if !in1 && in2 {
+			result.Differences = append(result.Differences, PDFDifference{
+				Type:        DiffFontDifference,
+				PageIndex:   pageIdx,
+				Description: fmt.Sprintf("Font %s added", name),
+				Detail2:     base2,
 			})
 		} else if base1 != base2 {
 			result.Differences = append(result.Differences, PDFDifference{
@@ -350,16 +408,6 @@ func compareFonts(result *PDFDiffResult, parser1, parser2 *rawPDFParser,
 				PageIndex:   pageIdx,
 				Description: fmt.Sprintf("Font %s changed", name),
 				Detail1:     base1,
-				Detail2:     base2,
-			})
-		}
-	}
-	for name, base2 := range fonts2 {
-		if _, exists := fonts1[name]; !exists {
-			result.Differences = append(result.Differences, PDFDifference{
-				Type:        DiffFontDifference,
-				PageIndex:   pageIdx,
-				Description: fmt.Sprintf("Font %s added", name),
 				Detail2:     base2,
 			})
 		}
@@ -432,13 +480,26 @@ func extractInfoValue(data []byte, key string) string {
 		i++
 	}
 	if i < len(rest) && rest[i] == '(' {
-		i++ // skip (
+		i++ // skip opening (
+		// Handle nested parentheses and escape sequences.
+		depth := 1
 		j := i
-		for j < len(rest) && rest[j] != ')' {
+		for j < len(rest) && depth > 0 {
 			if rest[j] == '\\' {
-				j++ // skip escaped char
+				j += 2 // skip escaped char
+				if j >= len(rest) {
+					break
+				}
+				continue
 			}
-			j++
+			if rest[j] == '(' {
+				depth++
+			} else if rest[j] == ')' {
+				depth--
+			}
+			if depth > 0 {
+				j++
+			}
 		}
 		if j <= len(rest) {
 			return string(rest[i:j])
@@ -472,8 +533,15 @@ func buildDiffSummary(result *PDFDiffResult) string {
 }
 
 func truncateText(s string, maxLen int) string {
-	if len(s) <= maxLen {
+	if maxLen <= 0 {
+		return ""
+	}
+	runes := []rune(s)
+	if len(runes) <= maxLen {
 		return s
 	}
-	return s[:maxLen-3] + "..."
+	if maxLen <= 3 {
+		return string(runes[:maxLen])
+	}
+	return string(runes[:maxLen-3]) + "..."
 }
