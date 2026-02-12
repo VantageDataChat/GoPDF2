@@ -1,7 +1,9 @@
 package gopdf
 
 import (
+	"bytes"
 	"errors"
+	"io"
 )
 
 // PageInfo contains information about a PDF page.
@@ -82,7 +84,7 @@ func GetSourcePDFPageCount(pdfPath string) (int, error) {
 // GetSourcePDFPageCountFromBytes returns the number of pages in a source PDF
 // from a byte slice without importing it.
 func GetSourcePDFPageCountFromBytes(pdfData []byte) (int, error) {
-	n, err := safeProbePageCount(pdfData)
+	n, err := GetSourcePDFPageCountV2(pdfData)
 	if err != nil {
 		return 0, err
 	}
@@ -104,18 +106,20 @@ func GetSourcePDFPageSizes(pdfPath string) (map[int]PageInfo, error) {
 
 // GetSourcePDFPageSizesFromBytes returns the page sizes from a PDF byte slice.
 func GetSourcePDFPageSizesFromBytes(pdfData []byte) (map[int]PageInfo, error) {
-	probed, err := safeProbePDF(pdfData)
-	if err != nil {
-		return nil, err
-	}
-	if probed.NumPages == 0 {
+	imp := newFpdiImporter()
+	rs := io.ReadSeeker(bytes.NewReader(pdfData))
+	imp.SetSourceStream(&rs)
+
+	numPages := imp.GetNumPages()
+	if numPages == 0 {
 		return nil, errors.New("PDF has no pages or is invalid")
 	}
 
-	result := make(map[int]PageInfo, probed.NumPages)
+	sizes := imp.GetPageSizes()
+	result := make(map[int]PageInfo, numPages)
 
-	for i := 1; i <= probed.NumPages; i++ {
-		mediaBox, ok := probed.Sizes[i]["/MediaBox"]
+	for i := 1; i <= numPages; i++ {
+		mediaBox, ok := sizes[i]["/MediaBox"]
 		if !ok {
 			continue
 		}

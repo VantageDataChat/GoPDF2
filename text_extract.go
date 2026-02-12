@@ -36,6 +36,11 @@ var (
 //	    fmt.Printf("(%0.f,%0.f) %s\n", t.X, t.Y, t.Text)
 //	}
 func ExtractTextFromPage(pdfData []byte, pageIndex int) ([]ExtractedText, error) {
+	// Try robust ledongthuc/pdf backend first.
+	if result, err := extractTextV2FromPage(pdfData, pageIndex); err == nil {
+		return result, nil
+	}
+	// Fallback to raw parser.
 	parser, err := newRawPDFParser(pdfData)
 	if err != nil {
 		return nil, err
@@ -54,6 +59,11 @@ func ExtractTextFromPage(pdfData []byte, pageIndex int) ([]ExtractedText, error)
 
 // ExtractTextFromAllPages extracts text from all pages.
 func ExtractTextFromAllPages(pdfData []byte) (map[int][]ExtractedText, error) {
+	// Try robust ledongthuc/pdf backend first.
+	if result, err := extractTextV2FromAllPages(pdfData); err == nil && len(result) > 0 {
+		return result, nil
+	}
+	// Fallback to raw parser.
 	parser, err := newRawPDFParser(pdfData)
 	if err != nil {
 		return nil, err
@@ -77,6 +87,11 @@ func ExtractTextFromAllPages(pdfData []byte) (map[int][]ExtractedText, error) {
 // ExtractPageText extracts all text from a page as a single string.
 // Convenience wrapper around ExtractTextFromPage.
 func ExtractPageText(pdfData []byte, pageIndex int) (string, error) {
+	// Try robust ledongthuc/pdf backend first.
+	if result, err := extractPageTextV2(pdfData, pageIndex); err == nil && result != "" {
+		return result, nil
+	}
+	// Fallback to raw parser.
 	texts, err := ExtractTextFromPage(pdfData, pageIndex)
 	if err != nil {
 		return "", err

@@ -127,12 +127,11 @@ func ExtractPages(pdfPath string, pages []int, opt *OpenPDFOption) (*GoPdf, erro
 	}
 
 	// Probe page count.
-	probed, err := safeProbePDF(data)
-	if err != nil {
-		return nil, err
-	}
-	numPages := probed.NumPages
-	sizes := probed.Sizes
+	probe := newFpdiImporter()
+	probeRS := io.ReadSeeker(bytes.NewReader(data))
+	probe.SetSourceStream(&probeRS)
+	numPages := probe.GetNumPages()
+	sizes := probe.GetPageSizes()
 
 	// Validate page numbers.
 	for _, p := range pages {
@@ -200,12 +199,11 @@ func ExtractPagesFromBytes(pdfData []byte, pages []int, opt *OpenPDFOption) (*Go
 		box = opt.Box
 	}
 
-	probe, err := safeProbePDF(pdfData)
-	if err != nil {
-		return nil, err
-	}
-	numPages := probe.NumPages
-	sizes := probe.Sizes
+	prb := newFpdiImporter()
+	prbRS := io.ReadSeeker(bytes.NewReader(pdfData))
+	prb.SetSourceStream(&prbRS)
+	numPages := prb.GetNumPages()
+	sizes := prb.GetPageSizes()
 
 	for _, p := range pages {
 		if p < 1 || p > numPages {
@@ -286,15 +284,14 @@ func MergePages(pdfPaths []string, opt *OpenPDFOption) (*GoPdf, error) {
 			return nil, err
 		}
 
-		probed, err := safeProbePDF(data)
-		if err != nil {
-			return nil, err
-		}
-		numPages := probed.NumPages
+		prb := newFpdiImporter()
+		prbRS := io.ReadSeeker(bytes.NewReader(data))
+		prb.SetSourceStream(&prbRS)
+		numPages := prb.GetNumPages()
 		if numPages == 0 {
 			continue
 		}
-		sizes := probed.Sizes
+		sizes := prb.GetPageSizes()
 
 		if !initialized {
 			firstSize, ok := sizes[1][box]
@@ -363,15 +360,14 @@ func MergePagesFromBytes(pdfDataSlices [][]byte, opt *OpenPDFOption) (*GoPdf, er
 	initialized := false
 
 	for _, data := range pdfDataSlices {
-		probed, err := safeProbePDF(data)
-		if err != nil {
-			return nil, err
-		}
-		numPages := probed.NumPages
+		prb := newFpdiImporter()
+		prbRS := io.ReadSeeker(bytes.NewReader(data))
+		prb.SetSourceStream(&prbRS)
+		numPages := prb.GetNumPages()
 		if numPages == 0 {
 			continue
 		}
-		sizes := probed.Sizes
+		sizes := prb.GetPageSizes()
 
 		if !initialized {
 			firstSize, ok := sizes[1][box]

@@ -75,12 +75,11 @@ func selectPagesFromBytes(pdfData []byte, pages []int, opt *OpenPDFOption) (*GoP
 	}
 
 	// Probe page count and sizes.
-	probed, err := safeProbePDF(pdfData)
-	if err != nil {
-		return nil, err
-	}
-	numPages := probed.NumPages
-	sizes := probed.Sizes
+	probe := newFpdiImporter()
+	probeRS := io.ReadSeeker(bytes.NewReader(pdfData))
+	probe.SetSourceStream(&probeRS)
+	numPages := probe.GetNumPages()
+	sizes := probe.GetPageSizes()
 
 	for _, p := range pages {
 		if p < 1 || p > numPages {

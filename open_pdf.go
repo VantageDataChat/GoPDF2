@@ -118,18 +118,17 @@ func (gp *GoPdf) openPDFFromData(data []byte, opt *OpenPDFOption) error {
 		}
 	}
 
-	// Phase 1: probe page count and sizes with a temporary importer.
-	probed, err := safeProbePDF(data)
-	if err != nil {
-		return err
-	}
+	// Phase 1: probe page count and sizes with the built-in importer.
+	probe := newFpdiImporter()
+	probeRS := io.ReadSeeker(bytes.NewReader(data))
+	probe.SetSourceStream(&probeRS)
 
-	numPages := probed.NumPages
+	numPages := probe.GetNumPages()
 	if numPages == 0 {
 		return errors.New("PDF has no pages")
 	}
 
-	sizes := probed.Sizes
+	sizes := probe.GetPageSizes()
 	firstSize, ok := sizes[1][box]
 	if !ok {
 		return errors.New("cannot read page size from source PDF")

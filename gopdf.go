@@ -16,8 +16,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/phpdave11/gofpdi"
 )
 
 const subsetFont = "SubsetFont"
@@ -98,8 +96,8 @@ type GoPdf struct {
 	headerFunc func()
 	footerFunc func()
 
-	// gofpdi free pdf document importer
-	fpdi *gofpdi.Importer
+	// PDF page importer (replaces gofpdi)
+	fpdi *fpdiImporter
 
 	//placeholder text
 	placeHolderTexts map[string]([]placeHolderTextInfo)
@@ -905,21 +903,19 @@ func (gp *GoPdf) AddFooter(f func()) {
 
 // Start : init gopdf
 func (gp *GoPdf) Start(config Config) {
-
 	gp.start(config)
-
 }
 
-func (gp *GoPdf) StartWithImporter(config Config, importer *gofpdi.Importer) {
-
-	gp.start(config, importer)
-
+// Deprecated: StartWithImporter is no longer needed. Use Start instead.
+// The gofpdi importer has been replaced with a built-in implementation.
+func (gp *GoPdf) StartWithImporter(config Config, importer interface{}) {
+	gp.start(config)
 }
 
-func (gp *GoPdf) start(config Config, importer ...*gofpdi.Importer) {
+func (gp *GoPdf) start(config Config) {
 
 	gp.config = config
-	gp.init(importer...)
+	gp.init()
 	//init all basic obj
 	catalog := new(CatalogObj)
 	catalog.init(func() *GoPdf {
@@ -2235,7 +2231,7 @@ func (gp *GoPdf) Rectangle(x0 float64, y0 float64, x1 float64, y1 float64, style
 /*---private---*/
 
 // init
-func (gp *GoPdf) init(importer ...*gofpdi.Importer) {
+func (gp *GoPdf) init() {
 	gp.pdfObjs = []IObj{}
 	gp.buf = bytes.Buffer{}
 	gp.indexEncodingObjFonts = []int{}
@@ -2282,16 +2278,9 @@ func (gp *GoPdf) init(importer ...*gofpdi.Importer) {
 	gp.config.PageSize = *gp.config.PageSize.unitsToPoints(gp.config)
 	gp.config.TrimBox = *gp.config.TrimBox.unitsToPoints(gp.config)
 
-	// init gofpdi free pdf document importer
-	gp.fpdi = importerOrDefault(importer...)
+	// init PDF page importer
+	gp.fpdi = newFpdiImporter()
 
-}
-
-func importerOrDefault(importer ...*gofpdi.Importer) *gofpdi.Importer {
-	if len(importer) != 0 {
-		return importer[len(importer)-1]
-	}
-	return gofpdi.NewImporter()
 }
 
 func (gp *GoPdf) resetCurrXY() {
