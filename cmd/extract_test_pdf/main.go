@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	gopdf "github.com/VantageDataChat/GoPDF2"
 )
@@ -14,7 +15,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 1. 获取页数
+	// 获取页数
 	n, err := gopdf.GetSourcePDFPageCountFromBytes(data)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "get page count: %v\n", err)
@@ -22,24 +23,30 @@ func main() {
 	}
 	fmt.Printf("Page count: %d\n", n)
 
-	// 2. 提取全部文本
-	text, err := gopdf.ExtractAllPagesText(data)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ExtractAllPagesText: %v\n", err)
-		os.Exit(1)
+	// 用 ExtractPageText 逐页提取
+	var sb strings.Builder
+	for i := 0; i < n; i++ {
+		text, err := gopdf.ExtractPageText(data, i)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "page %d error: %v\n", i+1, err)
+			continue
+		}
+		sb.WriteString(fmt.Sprintf("===== Page %d =====\n", i+1))
+		sb.WriteString(text)
+		sb.WriteString("\n\n")
 	}
 
-	fmt.Printf("Extracted %d chars\n", len(text))
+	result := sb.String()
+	fmt.Printf("Extracted %d chars\n", len(result))
 
-	// 3. 保存到文件
-	if err := os.WriteFile("test_output.txt", []byte(text), 0644); err != nil {
-		fmt.Fprintf(os.Stderr, "write output: %v\n", err)
+	if err := os.WriteFile("test_output.txt", []byte(result), 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "write: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Println("Saved to test_output.txt")
 
-	// 4. 打印前500字符预览
-	preview := text
+	// 预览
+	preview := strings.TrimSpace(result)
 	if len(preview) > 500 {
 		preview = preview[:500] + "..."
 	}
