@@ -3,8 +3,6 @@ package gopdf
 import (
 	"bytes"
 	"io"
-
-	"github.com/phpdave11/gofpdi"
 )
 
 // SelectPages rearranges the document to contain only the specified pages
@@ -77,11 +75,12 @@ func selectPagesFromBytes(pdfData []byte, pages []int, opt *OpenPDFOption) (*GoP
 	}
 
 	// Probe page count and sizes.
-	probe := gofpdi.NewImporter()
-	probeRS := io.ReadSeeker(bytes.NewReader(pdfData))
-	probe.SetSourceStream(&probeRS)
-	numPages := probe.GetNumPages()
-	sizes := probe.GetPageSizes()
+	probed, err := safeProbePDF(pdfData)
+	if err != nil {
+		return nil, err
+	}
+	numPages := probed.NumPages
+	sizes := probed.Sizes
 
 	for _, p := range pages {
 		if p < 1 || p > numPages {

@@ -1644,7 +1644,13 @@ func (gp *GoPdf) UseImportedTemplate(tplid int, x float64, y float64, w float64,
 
 // ImportPagesFromSource imports pages from a source pdf.
 // The source can be a file path, byte slice, or (*)io.ReadSeeker.
-func (gp *GoPdf) ImportPagesFromSource(source interface{}, box string) error {
+func (gp *GoPdf) ImportPagesFromSource(source interface{}, box string) (retErr error) {
+	defer func() {
+		if r := recover(); r != nil {
+			retErr = fmt.Errorf("failed to parse PDF: %v", r)
+		}
+	}()
+
 	switch v := source.(type) {
 	case string:
 		// Set source file for fpdi

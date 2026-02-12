@@ -5,8 +5,6 @@ import (
 	"errors"
 	"io"
 	"os"
-
-	"github.com/phpdave11/gofpdi"
 )
 
 var (
@@ -129,11 +127,12 @@ func ExtractPages(pdfPath string, pages []int, opt *OpenPDFOption) (*GoPdf, erro
 	}
 
 	// Probe page count.
-	probe := gofpdi.NewImporter()
-	probeRS := io.ReadSeeker(bytes.NewReader(data))
-	probe.SetSourceStream(&probeRS)
-	numPages := probe.GetNumPages()
-	sizes := probe.GetPageSizes()
+	probed, err := safeProbePDF(data)
+	if err != nil {
+		return nil, err
+	}
+	numPages := probed.NumPages
+	sizes := probed.Sizes
 
 	// Validate page numbers.
 	for _, p := range pages {
@@ -201,11 +200,12 @@ func ExtractPagesFromBytes(pdfData []byte, pages []int, opt *OpenPDFOption) (*Go
 		box = opt.Box
 	}
 
-	probe := gofpdi.NewImporter()
-	probeRS := io.ReadSeeker(bytes.NewReader(pdfData))
-	probe.SetSourceStream(&probeRS)
-	numPages := probe.GetNumPages()
-	sizes := probe.GetPageSizes()
+	probe, err := safeProbePDF(pdfData)
+	if err != nil {
+		return nil, err
+	}
+	numPages := probe.NumPages
+	sizes := probe.Sizes
 
 	for _, p := range pages {
 		if p < 1 || p > numPages {
@@ -286,14 +286,15 @@ func MergePages(pdfPaths []string, opt *OpenPDFOption) (*GoPdf, error) {
 			return nil, err
 		}
 
-		probe := gofpdi.NewImporter()
-		probeRS := io.ReadSeeker(bytes.NewReader(data))
-		probe.SetSourceStream(&probeRS)
-		numPages := probe.GetNumPages()
+		probed, err := safeProbePDF(data)
+		if err != nil {
+			return nil, err
+		}
+		numPages := probed.NumPages
 		if numPages == 0 {
 			continue
 		}
-		sizes := probe.GetPageSizes()
+		sizes := probed.Sizes
 
 		if !initialized {
 			firstSize, ok := sizes[1][box]
@@ -362,14 +363,15 @@ func MergePagesFromBytes(pdfDataSlices [][]byte, opt *OpenPDFOption) (*GoPdf, er
 	initialized := false
 
 	for _, data := range pdfDataSlices {
-		probe := gofpdi.NewImporter()
-		probeRS := io.ReadSeeker(bytes.NewReader(data))
-		probe.SetSourceStream(&probeRS)
-		numPages := probe.GetNumPages()
+		probed, err := safeProbePDF(data)
+		if err != nil {
+			return nil, err
+		}
+		numPages := probed.NumPages
 		if numPages == 0 {
 			continue
 		}
-		sizes := probe.GetPageSizes()
+		sizes := probed.Sizes
 
 		if !initialized {
 			firstSize, ok := sizes[1][box]

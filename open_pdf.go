@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-
-	"github.com/phpdave11/gofpdi"
 )
 
 // OpenPDFOption configures how an existing PDF is opened.
@@ -121,16 +119,17 @@ func (gp *GoPdf) openPDFFromData(data []byte, opt *OpenPDFOption) error {
 	}
 
 	// Phase 1: probe page count and sizes with a temporary importer.
-	probe := gofpdi.NewImporter()
-	probeRS := io.ReadSeeker(bytes.NewReader(data))
-	probe.SetSourceStream(&probeRS)
+	probed, err := safeProbePDF(data)
+	if err != nil {
+		return err
+	}
 
-	numPages := probe.GetNumPages()
+	numPages := probed.NumPages
 	if numPages == 0 {
 		return errors.New("PDF has no pages")
 	}
 
-	sizes := probe.GetPageSizes()
+	sizes := probed.Sizes
 	firstSize, ok := sizes[1][box]
 	if !ok {
 		return errors.New("cannot read page size from source PDF")
